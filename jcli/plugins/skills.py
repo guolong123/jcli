@@ -1,0 +1,399 @@
+"""Jcli skills management commands."""
+
+from __future__ import annotations
+
+import re
+from pathlib import Path
+from typing import Any
+
+import click
+
+from jcli.cli_helpers import get_formatter
+
+# ------------------------------------------------------------------
+# Constants
+# ------------------------------------------------------------------
+
+# Bundled skills directory (ships with jcli package)
+BUNDLED_SKILLS_DIR = Path(__file__).parent.parent / "skills" / "jcli"
+
+# Default install directory for opencode
+DEFAULT_INSTALL_DIR = Path.home() / ".config" / "opencode" / "skills"
+
+# SKILL.md frontmatter pattern
+FRONTMATTER_PATTERN = re.compile(r"^---\s*\n(.*?)\n---\s*\n", re.DOTALL)
+
+
+# ------------------------------------------------------------------
+# Helpers
+# ------------------------------------------------------------------
+
+
+def parse_skill_metadata(skill_dir: Path) -> dict[str, Any]:
+    """Parse SKILL.md frontmatter to extract metadata.
+
+    Returns dict with keys: name, version, description, allowed_tools, path
+    """
+    skill_md = skill_dir / "SKILL.md"
+    metadata: dict[str, Any] = {
+        "name": skill_dir.name,
+        "version": "",
+        "description": "",
+        "allowed_tools": [],
+        "path": str(skill_dir),
+    }
+
+    if not skill_md.exists():
+        return metadata
+
+    try:
+        content = skill_md.read_text(encoding="utf-8")
+    except OSError:
+        return metadata
+
+    # Extract frontmatter
+    match = FRONTMATTER_PATTERN.match(content)
+    if not match:
+        return metadata
+
+    frontmatter = match.group(1)
+
+    # Simple YAML parsing without pyyaml dependency
+    for line in frontmatter.split("\n"):
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+
+        if line.startswith("name:"):
+            metadata["name"] = line.split(":", 1)[1].strip().strip("'\"")
+        elif line.startswith("version:"):
+            metadata["version"] = line.split(":", 1)[1].strip().strip("'\"")
+        elif line.startswith("description:"):
+            desc = line.split(":", 1)[1].strip().strip("'\"")
+            metadata["description"] = desc
+        elif line.startswith("- ") and "allowed-tools" in frontmatter:
+            tool = line[2:].strip().strip("'\"")
+            metadata["allowed_tools"].append(tool)
+
+    return metadata
+
+
+def get_bundled_skills() -> list[dict[str, Any]]:
+    """Get all bundled skills from the skills directory."""
+    skills = []
+
+    if not BUNDLED_SKILLS_DIR.exists():
+        return skills
+
+    for skill_dir in sorted(BUNDLED_SKILLS_DIR.iterdir()):
+        if skill_dir.is_dir() and (skill_dir / "SKILL.md").exists():
+            metadata = parse_skill_metadata(skill_dir)
+            metadata["source"] = "bundled"
+            skills.append(metadata)
+
+    return skills
+
+
+def get_installed_skills(install_dir: Path | None = None) -> list[dict[str, Any]]:
+    """Get all installed skills from the install directory."""
+    target_dir = install_dir or DEFAULT_INSTALL_DIR
+    skills = []
+
+    if not target_dir.exists():
+        return skills
+
+    for skill_dir in sorted(target_dir.iterdir()):
+        if skill_dir.is_dir() and (skill_dir / "SKILL.md").exists():
+            metadata = parse_skill_metadata(skill_dir)
+            metadata["source"] = "installed"
+            # Check if it's a symlink to bundled
+            if skill_dir.is_symlink():
+                real_path = skill_dir.resolve()
+                if str(BUNDLED_SKILLS_DIR) in str(real_path):
+                    metadata["source"] = "bundled (symlink)"
+            skills.append(metadata)
+
+    return skills
+
+
+def find_skill_dir(name: str) -> Path | None:
+    """Find a bundled skill directory by name or frontmatter name."""
+    direct_path = BUNDLED_SKILLS_DIR / name
+    if direct_path.exists() and direct_path.is_dir():
+        return direct_path
+
+    for skill_dir in BUNDLED_SKILLS_DIR.iterdir():
+        if skill_dir.is_dir():
+            metadata = parse_skill_metadata(skill_dir)
+            if metadata["name"] == name:
+                return skill_dir
+
+    return None
+
+
+def install_skill(
+    name: str,
+    install_dir: Path | None = None,
+    force: bool = False,
+) -> bool:
+    """Install a skill by creating a symlink.
+
+    Returns True if successful, False otherwise.
+    """
+    target_dir = install_dir or DEFAULT_INSTALL_DIR
+
+    # Find the bundled skill
+    skill_source = find_skill_dir(name)
+    if not skill_source:
+        raise click.ClickException(f"Skill '{name}' not found in bundled skills.")
+
+    skill_dest = target_dir / name
+
+    # Check if already installed
+    if skill_dest.exists():
+        if force:
+            # Remove existing
+            if skill_dest.is_symlink():
+                skill_dest.unlink()
+            else:
+                raise click.ClickException(
+                    f"Skill '{name}' already installed at {skill_dest}. "
+                    "Use --force to overwrite."
+                )
+        else:
+            raise click.ClickException(
+                f"Skill '{name}' already installed at {skill_dest}. "
+                "Use --force to overwrite."
+            )
+
+    # Create install directory if needed
+    target_dir.mkdir(parents=True, exist_ok=True)
+
+    # Create symlink
+    skill_dest.symlink_to(skill_source)
+    return True
+
+
+def uninstall_skill(name: str, install_dir: Path | None = None) -> bool:
+    """Uninstall a skill by removing the symlink/directory.
+
+    Returns True if successful, False otherwise.
+    """
+    target_dir = install_dir or DEFAULT_INSTALL_DIR
+    skill_path = target_dir / name
+
+    if not skill_path.exists():
+        raise click.ClickException(f"Skill '{name}' not found in {target_dir}.")
+
+    if skill_path.is_symlink():
+        skill_path.unlink()
+    else:
+        raise click.ClickException(
+            f"Skill '{name}' is not a symlink. "
+            "Manual removal required for non-symlinked skills."
+        )
+
+    return True
+
+
+# ------------------------------------------------------------------
+# Click group
+# ------------------------------------------------------------------
+
+
+@click.group("skills", help="Manage jcli skills (list, install, uninstall).")
+def skills_group() -> None:
+    """Skills management commands."""
+
+
+# ------------------------------------------------------------------
+# list
+# ------------------------------------------------------------------
+
+
+@skills_group.command("list")
+@click.option("--installed", "-i", is_flag=True, help="Show only installed skills.")
+@click.option("--bundled", "-b", is_flag=True, help="Show only bundled skills.")
+@click.option("--dir", "install_dir", type=click.Path(exists=False), help="Custom install directory.")
+@click.pass_context
+def list_cmd(ctx: click.Context, installed: bool, bundled: bool, install_dir: str | None) -> None:
+    """List all available skills."""
+    fmt = get_formatter(ctx)
+    target_dir = Path(install_dir) if install_dir else DEFAULT_INSTALL_DIR
+
+    skills_to_show = []
+
+    if not installed:
+        # Show bundled skills
+        bundled_skills = get_bundled_skills()
+        skills_to_show.extend(bundled_skills)
+
+    if not bundled:
+        # Show installed skills
+        installed_skills = get_installed_skills(target_dir)
+        # Avoid duplicates if both bundled and installed
+        existing_names = {s["name"] for s in skills_to_show}
+        for skill in installed_skills:
+            if skill["name"] not in existing_names:
+                skills_to_show.append(skill)
+
+    if not skills_to_show:
+        fmt.print_info("No skills found.")
+        return
+
+    headers = ["Name", "Version", "Description", "Source"]
+    rows = [
+        [
+            s.get("name", ""),
+            s.get("version", "-"),
+            s.get("description", "")[:50] + ("..." if len(s.get("description", "")) > 50 else ""),
+            s.get("source", ""),
+        ]
+        for s in skills_to_show
+    ]
+    fmt.print_table(headers, rows, title="Jcli Skills")
+
+
+# ------------------------------------------------------------------
+# install
+# ------------------------------------------------------------------
+
+
+@skills_group.command("install")
+@click.argument("name", required=False)
+@click.option("--all", "-a", "install_all", is_flag=True, help="Install all bundled skills.")
+@click.option("--force", "-f", is_flag=True, help="Force install (overwrite existing).")
+@click.option("--dir", "install_dir", type=click.Path(exists=False), help="Custom install directory.")
+@click.pass_context
+def install_cmd(ctx: click.Context, name: str | None, install_all: bool, force: bool, install_dir: str | None) -> None:
+    """Install a skill.
+
+    NAME is the skill name to install (from bundled skills).
+    Use -a/--all to install all bundled skills.
+    """
+    fmt = get_formatter(ctx)
+    target_dir = Path(install_dir) if install_dir else DEFAULT_INSTALL_DIR
+
+    if not name and not install_all:
+        raise click.UsageError("Must specify either NAME or -a/--all")
+
+    if install_all:
+        bundled = get_bundled_skills()
+        success_count = 0
+        skip_count = 0
+        fail_count = 0
+
+        for skill in bundled:
+            skill_name = skill["name"]
+            try:
+                install_skill(skill_name, target_dir, force)
+                fmt.print_success(f"Skill '{skill_name}' installed")
+                success_count += 1
+            except click.ClickException as exc:
+                if "already installed" in str(exc):
+                    fmt.print_info(f"Skill '{skill_name}' already installed, skipping")
+                    skip_count += 1
+                else:
+                    fmt.print_error(f"Skill '{skill_name}': {exc}")
+                    fail_count += 1
+
+        fmt.console.print(f"\n[bold]Summary:[/bold] {success_count} installed, {skip_count} skipped, {fail_count} failed")
+        return
+
+    try:
+        install_skill(name, target_dir, force)
+    except click.ClickException:
+        raise
+    except Exception as exc:
+        fmt.print_error(f"Failed to install skill '{name}': {exc}")
+        raise SystemExit(1) from exc
+
+    fmt.print_success(f"Skill '{name}' installed to {target_dir / name}")
+
+
+# ------------------------------------------------------------------
+# uninstall
+# ------------------------------------------------------------------
+
+
+@skills_group.command("uninstall")
+@click.argument("name")
+@click.option("--dir", "install_dir", type=click.Path(exists=False), help="Custom install directory.")
+@click.pass_context
+def uninstall_cmd(ctx: click.Context, name: str, install_dir: str | None) -> None:
+    """Uninstall a skill.
+
+    NAME is the skill name to uninstall.
+    """
+    fmt = get_formatter(ctx)
+    target_dir = Path(install_dir) if install_dir else DEFAULT_INSTALL_DIR
+
+    try:
+        uninstall_skill(name, target_dir)
+    except click.ClickException:
+        raise
+    except Exception as exc:
+        fmt.print_error(f"Failed to uninstall skill '{name}': {exc}")
+        raise SystemExit(1) from exc
+
+    fmt.print_success(f"Skill '{name}' uninstalled from {target_dir}")
+
+
+# ------------------------------------------------------------------
+# get
+# ------------------------------------------------------------------
+
+
+@skills_group.command("get")
+@click.argument("name")
+@click.option("--installed", "-i", is_flag=True, help="Get from installed skills.")
+@click.option("--dir", "install_dir", type=click.Path(exists=False), help="Custom install directory.")
+@click.pass_context
+def get_cmd(ctx: click.Context, name: str, installed: bool, install_dir: str | None) -> None:
+    """Show skill details and SKILL.md content."""
+    fmt = get_formatter(ctx)
+    target_dir = Path(install_dir) if install_dir else DEFAULT_INSTALL_DIR
+
+    if installed:
+        skill_dir = target_dir / name
+    else:
+        skill_dir = find_skill_dir(name)
+
+    if not skill_dir or not skill_dir.exists():
+        fmt.print_error(f"Skill '{name}' not found.")
+        raise SystemExit(1)
+
+    # Read and display SKILL.md
+    skill_md = skill_dir / "SKILL.md"
+    if not skill_md.exists():
+        fmt.print_error(f"Skill '{name}' does not have a SKILL.md file.")
+        raise SystemExit(1)
+
+    try:
+        content = skill_md.read_text(encoding="utf-8")
+    except OSError as exc:
+        fmt.print_error(f"Failed to read SKILL.md: {exc}")
+        raise SystemExit(1) from exc
+
+    # Print metadata
+    metadata = parse_skill_metadata(skill_dir)
+    fmt.console.print(f"\n[bold]Skill:[/bold] {metadata['name']}")
+    if metadata["version"]:
+        fmt.console.print(f"[bold]Version:[/bold] {metadata['version']}")
+    if metadata["description"]:
+        fmt.console.print(f"[bold]Description:[/bold] {metadata['description']}")
+    fmt.console.print(f"[bold]Path:[/bold] {metadata['path']}")
+    fmt.console.print("\n" + "=" * 60 + "\n")
+
+    # Print content
+    fmt.console.print(content)
+
+
+# ------------------------------------------------------------------
+# Registration
+# ------------------------------------------------------------------
+
+
+def register(parent_group: click.Group) -> None:
+    """Register the skills subgroup under the parent Click group."""
+    parent_group.add_command(skills_group)
