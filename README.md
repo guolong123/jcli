@@ -2,6 +2,8 @@
 
 A command-line tool for managing Jenkins servers. jcli wraps the Jenkins REST API into readable commands that work the way you'd expect, with table, JSON, and YAML output options.
 
+[中文文档](README-zh.md)
+
 ## Features
 
 - **8 command modules** covering jobs, builds, nodes, plugins, credentials, pipelines, views, and system management
