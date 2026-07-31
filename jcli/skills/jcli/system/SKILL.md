@@ -27,7 +27,10 @@ jcli system restart                        # 安全重启 Jenkins
 jcli system quiet-down                     # 进入安静模式
 jcli system quiet-down --reason "维护"     # 带原因的安静模式
 jcli system cancel-quiet-down              # 取消安静模式
-jcli system script "println('hello')"      # 执行 Groovy 脚本
+jcli system script <script>                # 执行 Groovy 脚本（位置参数）
+jcli system users                          # 列出所有 Jenkins 用户
+jcli system token <username>               # 为用户生成 API token
+jcli system token <username> --token-name <name>  # 指定 token 名称
 ```
 
 ## 常见用例
@@ -62,9 +65,19 @@ jcli system restart
 ### 执行 Groovy 脚本
 
 ```bash
-# 执行简单的 Groovy 脚本
+# 执行简单的 Groovy 脚本（SCRIPT 为位置参数）
 jcli system script "println('Hello from jcli')"
 
 # 获取所有节点信息
 jcli system script "Jenkins.instance.computers.each { println it.name }"
+```
+
+### 用户与 Token
+
+```bash
+# 列出所有用户
+jcli system users
+
+# 为指定用户生成 API token
+jcli system token admin
 ```

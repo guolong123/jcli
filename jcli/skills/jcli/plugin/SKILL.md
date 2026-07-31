@@ -25,7 +25,10 @@ jcli plugin list                           # 列出已安装插件
 jcli plugin get <name>                     # 查看插件详情
 jcli plugin install <name>                 # 安装插件
 jcli plugin install git@4.15.0             # 安装指定版本
+jcli plugin install <name1> <name2>        # 一次安装多个插件
 jcli plugin uninstall <name>               # 卸载插件
+jcli plugin restart <name>                 # 重启插件
+jcli plugin check-updates                  # 检查插件更新
 ```
 
 ## 常见用例

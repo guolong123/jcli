@@ -23,7 +23,8 @@ allowed-tools:
 ```bash
 jcli view list                             # 列出所有视图
 jcli view get <name>                       # 查看视图详情
-jcli view create <name> -f config.xml      # 从 XML 创建视图
+jcli view create <config.xml> <name>       # 从 XML 文件创建视图（XML 在前，名称在后）
+jcli view update <config.xml> <name>       # 用 XML 更新视图配置
 jcli view delete <name>                    # 删除视图
 ```
 
@@ -42,6 +43,6 @@ jcli view get my-view
 ### 创建视图
 
 ```bash
-# 从 XML 配置文件创建视图
-jcli view create my-view -f view-config.xml
+# 从 XML 配置文件创建视图（XML 文件路径在前，视图名在后）
+jcli view create view-config.xml my-view
 ```

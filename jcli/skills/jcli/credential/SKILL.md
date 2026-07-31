@@ -21,10 +21,12 @@ allowed-tools:
 ## 命令参考
 
 ```bash
-jcli credential list                       # 列出凭据
-jcli credential get <id>                   # 查看凭据详情
-jcli credential create <id> -f config.xml  # 从 XML 创建凭据
-jcli credential delete <id>                # 删除凭据
+jcli credential list [store] [domain]     # 列出凭据（默认 store=system, domain=_）
+jcli credential list --depth 2            # 递归列出凭据
+jcli credential get <id> [store]          # 查看凭据详情
+jcli credential create <config.xml> [store] [domain]  # 从 XML 文件创建凭据
+jcli credential update <config.xml> <id> [store]      # 更新凭据
+jcli credential delete <id> [store] [domain]          # 删除凭据
 ```
 
 ## 常见用例
@@ -43,5 +45,12 @@ jcli credential get my-credential-id
 
 ```bash
 # 从 XML 配置文件创建凭据
-jcli credential create my-credential-id -f credential-config.xml
+jcli credential create credential-config.xml
+```
+
+### 更新凭据
+
+```bash
+# 从 XML 文件更新已有凭据
+jcli credential update credential-config.xml my-credential-id
 ```

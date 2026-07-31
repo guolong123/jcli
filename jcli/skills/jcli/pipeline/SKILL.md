@@ -23,7 +23,7 @@ allowed-tools:
 ```bash
 jcli pipeline stages <job> <build>         # 查看阶段信息
 jcli pipeline log <job> <build> <node-id>  # 查看步骤日志
-jcli pipeline validate -f Jenkinsfile      # 验证 Jenkinsfile
+jcli pipeline validate <Jenkinsfile>       # 验证 Jenkinsfile（位置参数，文件路径）
 jcli pipeline pending <job> <build>        # 查看待处理输入
 ```
 
@@ -46,8 +46,8 @@ jcli pipeline log my-job 42 15
 ### 验证 Jenkinsfile
 
 ```bash
-# 验证 Jenkinsfile 语法
-jcli pipeline validate -f Jenkinsfile
+# 验证 Jenkinsfile 语法（传入文件路径）
+jcli pipeline validate Jenkinsfile
 ```
 
 ### 查看待处理输入

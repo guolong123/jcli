@@ -104,10 +104,10 @@ class TestGetBundledSkills:
         assert all("version" in s for s in skills)
         assert all(s["source"] == "bundled" for s in skills)
 
-    def test_includes_jcli_config_skill(self) -> None:
+    def test_includes_jcli_auth_skill(self) -> None:
         skills = get_bundled_skills()
         names = [s["name"] for s in skills]
-        assert "jcli-config" in names
+        assert "jcli-auth" in names
 
 
 # ==================================================================
@@ -140,15 +140,15 @@ class TestGetInstalledSkills:
 
 class TestFindSkillDir:
     def test_finds_by_directory_name(self) -> None:
-        result = find_skill_dir("config")
+        result = find_skill_dir("auth")
         assert result is not None
-        assert result.name == "config"
+        assert result.name == "auth"
         assert result.exists()
 
     def test_finds_by_frontmatter_name(self) -> None:
-        result = find_skill_dir("jcli-config")
+        result = find_skill_dir("jcli-auth")
         assert result is not None
-        assert result.name == "config"
+        assert result.name == "auth"
         assert result.exists()
 
     def test_returns_none_when_not_found(self) -> None:
@@ -166,12 +166,12 @@ class TestSkillsListCommand:
         result = runner.invoke(skills_group, ["list", "--bundled"])
         assert result.exit_code == 0
         assert "Jcli Skills" in result.output
-        assert "jcli-config" in result.output
+        assert "jcli-auth" in result.output
 
     def test_default_list_shows_only_jcli_skills(self, runner: CliRunner) -> None:
         result = runner.invoke(skills_group, ["list"])
         assert result.exit_code == 0
-        assert "jcli-config" in result.output
+        assert "jcli-auth" in result.output
         assert "audit-log-analysis" not in result.output
         assert "ketacli-" not in result.output
         assert "lark-" not in result.output
@@ -197,13 +197,13 @@ class TestSkillsInstallCommand:
     def test_installs_skill(self, runner: CliRunner, temp_install_dir: Path) -> None:
         result = runner.invoke(
             skills_group,
-            ["install", "jcli-config", "--dir", str(temp_install_dir)]
+            ["install", "jcli-auth", "--dir", str(temp_install_dir)]
         )
         assert result.exit_code == 0
         assert "installed" in result.output.lower()
 
         # Verify symlink exists
-        skill_link = temp_install_dir / "jcli-config"
+        skill_link = temp_install_dir / "jcli-auth"
         assert skill_link.exists()
         assert skill_link.is_symlink()
 
@@ -218,13 +218,13 @@ class TestSkillsInstallCommand:
         # Install once
         runner.invoke(
             skills_group,
-            ["install", "jcli-config", "--dir", str(temp_install_dir)]
+            ["install", "jcli-auth", "--dir", str(temp_install_dir)]
         )
 
         # Try to install again
         result = runner.invoke(
             skills_group,
-            ["install", "jcli-config", "--dir", str(temp_install_dir)]
+            ["install", "jcli-auth", "--dir", str(temp_install_dir)]
         )
         assert result.exit_code != 0
         assert "already installed" in result.output.lower()
@@ -233,20 +233,20 @@ class TestSkillsInstallCommand:
         # Install once
         runner.invoke(
             skills_group,
-            ["install", "jcli-config", "--dir", str(temp_install_dir)]
+            ["install", "jcli-auth", "--dir", str(temp_install_dir)]
         )
 
         # Force install again
         result = runner.invoke(
             skills_group,
-            ["install", "jcli-config", "--force", "--dir", str(temp_install_dir)]
+            ["install", "jcli-auth", "--force", "--dir", str(temp_install_dir)]
         )
         assert result.exit_code == 0
 
     def test_force_overwrites_broken_symlink(self, runner: CliRunner, temp_install_dir: Path) -> None:
         # Create a broken symlink (target does not exist)
         temp_install_dir.mkdir(parents=True)
-        skill_link = temp_install_dir / "jcli-config"
+        skill_link = temp_install_dir / "jcli-auth"
         skill_link.symlink_to(temp_install_dir / "nonexistent-target")
         assert skill_link.is_symlink()
         assert not skill_link.exists()
@@ -254,7 +254,7 @@ class TestSkillsInstallCommand:
         # Force install over the broken symlink
         result = runner.invoke(
             skills_group,
-            ["install", "jcli-config", "--force", "--dir", str(temp_install_dir)]
+            ["install", "jcli-auth", "--force", "--dir", str(temp_install_dir)]
         )
         assert result.exit_code == 0
 
@@ -274,19 +274,19 @@ class TestSkillsUninstallCommand:
         # Install first
         runner.invoke(
             skills_group,
-            ["install", "jcli-config", "--dir", str(temp_install_dir)]
+            ["install", "jcli-auth", "--dir", str(temp_install_dir)]
         )
 
         # Uninstall
         result = runner.invoke(
             skills_group,
-            ["uninstall", "jcli-config", "--dir", str(temp_install_dir)]
+            ["uninstall", "jcli-auth", "--dir", str(temp_install_dir)]
         )
         assert result.exit_code == 0
         assert "uninstalled" in result.output.lower()
 
         # Verify symlink removed
-        skill_link = temp_install_dir / "jcli-config"
+        skill_link = temp_install_dir / "jcli-auth"
         assert not skill_link.exists()
 
     def test_fails_when_not_installed(self, runner: CliRunner, temp_install_dir: Path) -> None:
@@ -299,14 +299,14 @@ class TestSkillsUninstallCommand:
     def test_uninstalls_broken_symlink(self, runner: CliRunner, temp_install_dir: Path) -> None:
         # Create a broken symlink (target does not exist)
         temp_install_dir.mkdir(parents=True)
-        skill_link = temp_install_dir / "jcli-config"
+        skill_link = temp_install_dir / "jcli-auth"
         skill_link.symlink_to(temp_install_dir / "nonexistent-target")
         assert skill_link.is_symlink()
         assert not skill_link.exists()
 
         result = runner.invoke(
             skills_group,
-            ["uninstall", "jcli-config", "--dir", str(temp_install_dir)]
+            ["uninstall", "jcli-auth", "--dir", str(temp_install_dir)]
         )
         assert result.exit_code == 0
         assert not skill_link.is_symlink()
@@ -319,9 +319,9 @@ class TestSkillsUninstallCommand:
 
 class TestSkillsGetCommand:
     def test_gets_bundled_skill(self, runner: CliRunner) -> None:
-        result = runner.invoke(skills_group, ["get", "jcli-config"])
+        result = runner.invoke(skills_group, ["get", "jcli-auth"])
         assert result.exit_code == 0
-        assert "jcli-config" in result.output
+        assert "jcli-auth" in result.output
         assert "1.0.0" in result.output
 
     def test_fails_when_not_found(self, runner: CliRunner) -> None:

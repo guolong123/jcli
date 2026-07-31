@@ -195,7 +195,7 @@ jcli skills get <name>           # 查看技能详情
 
 | 技能 | 说明 |
 |------|------|
-| jcli-config | 配置管理 |
+| jcli-auth | 认证配置管理 |
 | jcli-job | Job 管理 |
 | jcli-build | 构建管理 |
 | jcli-node | 节点管理 |

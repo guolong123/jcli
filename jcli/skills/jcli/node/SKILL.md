@@ -23,8 +23,10 @@ allowed-tools:
 ```bash
 jcli node list                             # 列出所有节点
 jcli node get <name>                       # 查看节点详情
+jcli node create <name>                    # 创建节点（JNLP 启动器）
+jcli node create <name> --num-executors 2 --remote-fs /data/jenkins --labels linux  # 指定参数创建
 jcli node delete <name>                    # 删除节点
-jcli node toggle <name> --message "维护"   # 节点离线
+jcli node toggle <name> --offline-message "维护"  # 节点离线（带原因）
 jcli node toggle <name>                    # 节点上线
 ```
 
@@ -34,7 +36,7 @@ jcli node toggle <name>                    # 节点上线
 
 ```bash
 # 节点离线（带维护原因）
-jcli node toggle agent-01 --message "系统升级维护"
+jcli node toggle agent-01 --offline-message "系统升级维护"
 
 # 节点恢复上线
 jcli node toggle agent-01
