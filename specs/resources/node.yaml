@@ -2,6 +2,7 @@ name: node
 description: Manage Jenkins nodes (agents)
 methods:
   list:
+    description: List all Jenkins nodes
     http:
       method: GET
       path: computer/api/json
@@ -15,6 +16,7 @@ methods:
         - name: temporarilyOffline
           alias: Temp Offline
   get:
+    description: Get details of a specific node
     http:
       method: GET
       path: "computer/{{ name }}/api/json"
@@ -24,6 +26,7 @@ methods:
           type: string
           argument: true
   delete:
+    description: Delete a Jenkins node
     http:
       method: POST
       path: "computer/{{ name }}/doDelete"
@@ -33,6 +36,7 @@ methods:
           type: string
           argument: true
   toggle:
+    description: Toggle a node offline or online
     http:
       method: POST
       path: "computer/{{ name }}/toggleOffline"
@@ -45,6 +49,7 @@ methods:
         - name: offlineMessage
           type: string
   create:
+    description: Create a new Jenkins agent node
     type: plugin:jenkins_node_create
     params:
       body:

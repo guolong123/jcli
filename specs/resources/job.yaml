@@ -2,6 +2,7 @@ name: job
 description: Manage Jenkins jobs
 methods:
   list:
+    description: List all Jenkins jobs
     http:
       method: GET
       path: api/json
@@ -17,6 +18,7 @@ methods:
         - name: color
           alias: Color
   get:
+    description: Show details for a specific job
     http:
       method: GET
       path: job/{{ name }}/api/json
@@ -39,6 +41,7 @@ methods:
         - name: disabled
           alias: Disabled
   create:
+    description: Create a new job from XML config file or parameters
     type: plugin:jenkins_job_create
     params:
       path:
@@ -68,6 +71,7 @@ methods:
         - name: script
           type: string
   update:
+    description: Update a job's configuration from an XML file
     http:
       method: POST
       path: job/{{ name }}/config.xml
@@ -84,6 +88,7 @@ methods:
           type: file
           argument: true
   delete:
+    description: Delete a job
     http:
       method: POST
       path: job/{{ name }}/doDelete
@@ -93,6 +98,7 @@ methods:
           type: string
           argument: true
   copy:
+    description: Copy a job to a new name
     http:
       method: POST
       path: createItem
@@ -109,6 +115,7 @@ methods:
           type: string
           argument: true
   rename:
+    description: Rename a job
     http:
       method: POST
       path: job/{{ old_name }}/doRename
@@ -123,6 +130,7 @@ methods:
           type: string
           argument: true
   enable:
+    description: Enable a disabled job
     http:
       method: POST
       path: job/{{ name }}/enable
@@ -132,6 +140,7 @@ methods:
           type: string
           argument: true
   disable:
+    description: Disable a job
     http:
       method: POST
       path: job/{{ name }}/disable
@@ -141,6 +150,7 @@ methods:
           type: string
           argument: true
   config:
+    description: Print the XML configuration of a job
     http:
       method: GET
       path: job/{{ name }}/config.xml
@@ -150,6 +160,7 @@ methods:
           type: string
           argument: true
   create-folder:
+    description: Create a new folder
     http:
       method: POST
       path: createItem
@@ -162,6 +173,7 @@ methods:
           type: string
           argument: true
   delete-folder:
+    description: Delete a folder and all its contents
     http:
       method: POST
       path: job/{{ name }}/doDelete

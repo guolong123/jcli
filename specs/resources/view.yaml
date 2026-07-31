@@ -2,6 +2,7 @@ name: view
 description: Manage Jenkins views
 methods:
   list:
+    description: List all Jenkins views
     http:
       method: GET
       path: api/json
@@ -17,6 +18,7 @@ methods:
         - name: jobs
           alias: Jobs
   get:
+    description: Get details for a view
     http:
       method: GET
       path: "view/{{ name }}/api/json"
@@ -26,6 +28,7 @@ methods:
           type: string
           argument: true
   create:
+    description: Create a view from XML config
     http:
       method: POST
       path: createView
@@ -44,6 +47,7 @@ methods:
           type: file
           argument: true
   update:
+    description: Update a view's configuration
     http:
       method: POST
       path: "view/{{ name }}/config.xml"
@@ -60,6 +64,7 @@ methods:
           type: file
           argument: true
   delete:
+    description: Delete a view
     http:
       method: POST
       path: "view/{{ name }}/doDelete"

@@ -2,6 +2,7 @@ name: pipeline
 description: Manage Jenkins pipelines
 methods:
   stages:
+    description: List stages for a Pipeline build
     http:
       method: GET
       path: "job/{{ job_name | replace('/', '/job/') }}/{{ build_number }}/wfapi/describe"
@@ -23,6 +24,7 @@ methods:
         - name: durationMillis
           alias: Duration
   log:
+    description: Get log output for a Pipeline step
     http:
       method: GET
       path: "job/{{ job_name | replace('/', '/job/') }}/{{ build_number }}/execution/node/{{ node_id }}/wfapi/log"
@@ -38,6 +40,7 @@ methods:
           type: string
           argument: true
   validate:
+    description: Validate a Jenkinsfile against the server
     type: plugin:jenkins_pipeline_validate
     params:
       body:
@@ -45,6 +48,7 @@ methods:
           type: file
           argument: true
   pending:
+    description: Show pending input actions for a Pipeline build
     http:
       method: GET
       path: "job/{{ job_name | replace('/', '/job/') }}/{{ build_number }}/wfapi/pendingInputActions"

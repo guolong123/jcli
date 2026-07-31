@@ -2,6 +2,7 @@ name: build
 description: Manage Jenkins builds
 methods:
   list:
+    description: List recent builds for a job
     http:
       method: GET
       path: "job/{{ job_name | replace('/', '/job/') }}/api/json"
@@ -31,6 +32,7 @@ methods:
           alias: Building
 
   get:
+    description: Show details for a specific build
     http:
       method: GET
       path: "job/{{ job_name | replace('/', '/job/') }}/{{ number }}/api/json"
@@ -44,6 +46,7 @@ methods:
           argument: true
 
   trigger:
+    description: Trigger a new build for a job (with optional KEY=VAL params)
     type: plugin:jenkins_build_trigger
     params:
       body:
@@ -55,6 +58,7 @@ methods:
           multiple: true
 
   log:
+    description: Show console log for a build
     http:
       method: GET
       path: "job/{{ job_name | replace('/', '/job/') }}/{{ number }}/consoleText"
@@ -70,6 +74,7 @@ methods:
       format: text
 
   stop:
+    description: Stop a running build
     http:
       method: POST
       path: "job/{{ job_name | replace('/', '/job/') }}/{{ number }}/stop"
@@ -83,6 +88,7 @@ methods:
           argument: true
 
   queue:
+    description: Show the current Jenkins build queue
     http:
       method: GET
       path: queue/api/json
@@ -97,6 +103,7 @@ methods:
           alias: Since
 
   artifacts:
+    description: List artifacts produced by a build
     http:
       method: GET
       path: "job/{{ job_name | replace('/', '/job/') }}/{{ build_number }}/api/json"
@@ -119,6 +126,7 @@ methods:
           alias: Path
 
   rebuild:
+    description: Rebuild a build reusing its parameters (with optional --set overrides)
     type: plugin:jenkins_build_rebuild
     params:
       body:
@@ -134,6 +142,7 @@ methods:
           description: Override parameters (KEY=VAL)
 
   replay:
+    description: Replay a Pipeline build with a modified Jenkinsfile
     type: plugin:jenkins_build_replay
     params:
       body:

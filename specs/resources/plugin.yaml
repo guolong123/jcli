@@ -2,7 +2,7 @@ name: plugin
 description: Manage Jenkins plugins
 methods:
   list:
-    description: List installed plugins
+    description: List installed Jenkins plugins
     http:
       method: GET
       path: pluginManager/api/json
@@ -20,6 +20,7 @@ methods:
         - name: hasUpdate
           alias: Update
   get:
+    description: Show details for a single plugin
     type: plugin:jenkins_plugin_get
     params:
       body:
@@ -27,6 +28,7 @@ methods:
           type: string
           argument: true
   install:
+    description: Install one or more plugins (NAME or NAME@VERSION)
     type: plugin:jenkins_plugin_install
     params:
       body:
@@ -35,6 +37,7 @@ methods:
           multiple: true
           argument: true
   uninstall:
+    description: Uninstall a plugin
     http:
       method: POST
       path: "pluginManager/plugin/{{ short_name }}/doUninstall"
@@ -44,12 +47,14 @@ methods:
           type: string
           argument: true
   check-updates:
+    description: Check for plugin updates
     http:
       method: POST
       path: pluginManager/checkUpdates
     output:
       format: json
   restart:
+    description: Restart a plugin
     http:
       method: POST
       path: "pluginManager/plugin/{{ short_name }}/restart"

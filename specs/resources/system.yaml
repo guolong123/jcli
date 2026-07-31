@@ -2,16 +2,19 @@ name: system
 description: Jenkins system information and management
 methods:
   info:
+    description: Show Jenkins system version and stats
     type: plugin:jenkins_system_info
     params:
       body: {}
 
   load:
+    description: Show queue length and executor usage
     type: plugin:jenkins_system_load
     params:
       body: {}
 
   quiet-down:
+    description: Put Jenkins into quiet-down mode
     http:
       method: POST
       path: quietDown
@@ -23,16 +26,19 @@ methods:
           type: string
 
   cancel-quiet-down:
+    description: Cancel quiet-down mode
     http:
       method: POST
       path: cancelQuietDown
 
   restart:
+    description: Trigger a safe restart of Jenkins
     http:
       method: POST
       path: safeRestart
 
   script:
+    description: Execute a Groovy script on the server
     type: plugin:jenkins_system_script
     params:
       body:
@@ -41,6 +47,7 @@ methods:
           argument: true
 
   users:
+    description: List all Jenkins users
     http:
       method: GET
       path: asynchPeople/api/json
@@ -53,6 +60,7 @@ methods:
           alias: Name
 
   token:
+    description: Generate a new API token for a user
     type: plugin:jenkins_system_token
     params:
       body:
