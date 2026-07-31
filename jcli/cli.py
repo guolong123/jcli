@@ -320,10 +320,142 @@ def _prune_non_jcli_commands(cli: click.Group) -> None:
             cli.commands.pop(name)
 
 
+def _mask_token(token: str) -> str:
+    """Mask an API token for display (``abcd****wxyz``)."""
+    if len(token) > 8:
+        return f"{token[:4]}****{token[-4:]}"
+    return "****" if token else "-"
+
+
+def _add_jcli_auth_commands(cli: click.Group) -> None:
+    """Register the jcli-native ``auth`` command group.
+
+    Replaces cliyard's built-in ``auth``, which writes ``~/.cliyard/
+    credentials.yaml`` and is unrelated to jcli's actual authentication
+    source.  This group reads/writes ``~/.jcli/config.yaml`` through the
+    same :class:`jcli.sdk.config.Config` class as ``jcli config``, so the
+    two command families share a single configuration source.
+    """
+    import copy
+
+    from jcli.sdk.config import (
+        DEFAULT_CONFIG_TEMPLATE,
+        DEFAULT_PROFILE_NAME,
+        ProfileNotFoundError,
+        Config,
+    )
+
+    @click.group()
+    def auth() -> None:
+        """Manage Jenkins authentication profiles."""
+
+    def _get_config() -> Config:
+        return Config().load()
+
+    @auth.command("add")
+    @click.option("-n", "--name", default=DEFAULT_PROFILE_NAME, help="Profile name.")
+    @click.option("-u", "--username", required=True, help="Jenkins username.")
+    @click.option(
+        "-p",
+        "--password",
+        "api_token",
+        required=True,
+        help="Jenkins API token (Jenkins Basic Auth = username:token).",
+    )
+    @click.option("-e", "--endpoint", "url", required=True, help="Jenkins server URL.")
+    @click.option("--default", "set_default", is_flag=True, help="Set as the active profile.")
+    def auth_add(name: str, username: str, api_token: str, url: str, set_default: bool) -> None:
+        """Add (or update) an authentication profile in ~/.jcli/config.yaml."""
+        cfg = _get_config()
+        has_custom = any(p != DEFAULT_PROFILE_NAME for p in cfg.list_profiles())
+        cfg.add_profile(name=name, url=url, username=username, api_token=api_token)
+        if set_default or not has_custom:
+            cfg.set_active_profile(name)
+        click.echo(f"Profile '{name}' added ({'active' if cfg.get_active_profile_name() == name else 'inactive'}).")
+
+    @auth.command("status")
+    @click.pass_context
+    def auth_status(ctx: click.Context) -> None:
+        """List configured authentication profiles (tokens masked)."""
+        from jcli.sdk.output.formatter import get_formatter
+
+        fmt = get_formatter(ctx.find_root())
+        cfg = _get_config()
+        profiles = cfg.list_profiles()
+        active_name = cfg.get_active_profile_name()
+
+        if not profiles:
+            fmt.print_info("No profiles configured. Run 'jcli auth add' to create one.")
+            return
+
+        headers = ["Name", "URL", "Username", "Token", "Active"]
+        rows = []
+        for name, data in profiles.items():
+            rows.append(
+                [
+                    name,
+                    data.get("url", ""),
+                    data.get("username", ""),
+                    _mask_token(data.get("api_token", "")),
+                    "✓" if name == active_name else "",
+                ]
+            )
+        fmt.print_table(headers, rows, title="Profiles")
+
+    def _auth_use(profile: str) -> None:
+        cfg = _get_config()
+        try:
+            cfg.set_active_profile(profile)
+        except ProfileNotFoundError:
+            click.echo(f"Error: Profile '{profile}' not found", err=True)
+            available = ", ".join(cfg.list_profiles())
+            if available:
+                click.echo(f"Available profiles: {available}", err=True)
+            raise click.exceptions.Exit(1)
+        click.echo(f"Active profile set to '{profile}'")
+
+    @auth.command("use")
+    @click.argument("profile")
+    def auth_use(profile: str) -> None:
+        """Switch the active authentication profile."""
+        _auth_use(profile)
+
+    @auth.command("switch", hidden=True)
+    @click.argument("profile")
+    def auth_switch(profile: str) -> None:
+        """Alias of ``auth use``."""
+        _auth_use(profile)
+
+    @auth.command("rm")
+    @click.argument("name", required=False)
+    @click.option("--all", "clear_all", is_flag=True, help="Remove all profiles and reset to the default template.")
+    def auth_rm(name: str | None, clear_all: bool) -> None:
+        """Remove an authentication profile (or all with --all)."""
+        cfg = _get_config()
+        if name:
+            try:
+                cfg.remove_profile(name)
+            except ProfileNotFoundError:
+                click.echo(f"Error: Profile '{name}' not found", err=True)
+                raise click.exceptions.Exit(1)
+            click.echo(f"Profile '{name}' removed")
+        elif clear_all:
+            cfg._data = copy.deepcopy(DEFAULT_CONFIG_TEMPLATE)
+            cfg.save()
+            click.echo("All profiles removed, config reset to the default template.")
+        else:
+            active = cfg.get_active_profile_name()
+            click.echo(f"Active profile: {active} (use 'jcli auth rm NAME' or 'jcli auth rm --all')")
+
+    cli.add_command(auth)
+
+
 def _build_cli(spec_dir: Path, server: str | None, profile: str | None) -> click.Group:
     """Create the cliyard CLI and apply the jcli wrapper layer."""
     base_url = resolve_base_url(server, profile)
     cli = create_cli(str(spec_dir), version=__version__, base_url_override=base_url)
+    cli.commands.pop("auth", None)
+    _add_jcli_auth_commands(cli)
     add_global_options(cli)
     add_completion_command(cli)
     wrap_subcommand_callbacks(cli)
