@@ -192,8 +192,9 @@ jcli job delete JOB_NAME                    Delete a job
 jcli build list JOB_NAME                    List recent builds for a job
 jcli build get JOB_NAME BUILD_NUMBER        Show details for a specific build
 jcli build trigger JOB_NAME                 Trigger a new build
-jcli build replay JOB_NAME BUILD_NUMBER     Replay a build reusing its parameters
-jcli build replay JOB_NAME BUILD_NUMBER --set KEY=VAL   ... and override values (repeatable)
+jcli build rebuild JOB_NAME BUILD_NUMBER  Rebuild reusing previous parameters
+jcli build rebuild JOB_NAME BUILD_NUMBER --set KEY=VAL   ... and override values (repeatable)
+jcli build replay JOB_NAME BUILD_NUMBER JENKINSFILE   Replay a build with a custom Jenkinsfile
 jcli build log JOB_NAME BUILD_NUMBER        Show console log for a build
 jcli build stop JOB_NAME BUILD_NUMBER       Stop a running build
 jcli build queue                            Show the current build queue

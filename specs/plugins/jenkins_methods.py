@@ -81,11 +81,11 @@ def jenkins_build_trigger(
     return {"status": "queued", "url": location}
 
 
-@register_method("jenkins_build_replay")
-def jenkins_build_replay(
+@register_method("jenkins_build_rebuild")
+def jenkins_build_rebuild(
     params: dict[str, Any], http_client: Any, config: dict[str, Any]
 ) -> dict[str, Any]:
-    """Replay a build: auto-fetch previous build parameters + ``--set`` override.
+    """Rebuild a build: auto-fetch previous build parameters + ``--set`` override.
 
     Flow: GET previous parameters → merge ``--set`` overrides →
     POST buildWithParameters or /build.
@@ -133,6 +133,72 @@ def jenkins_build_replay(
 
     location = resp.headers.get("Location", "")
     return {"status": "queued", "url": location, "parameters": build_params}
+
+
+@register_method("jenkins_build_replay")
+def jenkins_build_replay(
+    params: dict[str, Any], http_client: Any, config: dict[str, Any]
+) -> dict[str, Any]:
+    """Replay a build with a provided Jenkinsfile via the Jenkins Replay API.
+
+    POST /job/{job}/{build}/replay/run with form data carrying the
+    Jenkinsfile content (``_.mainScript``), a crumb, the ``Submit``
+    button value and the serialized ``json`` form.  On success Jenkins
+    responds with a 302 redirect (new build queued) or 200.
+
+    Args:
+        params: Body params — ``job_name`` (str), ``build_number`` (int),
+            ``jenkinsfile`` (str, file content or path to read).
+        http_client: Configured HttpClient instance.
+        config: Plugin configuration (unused).
+
+    Returns:
+        Dict with ``status`` (``replayed``/``failed``), ``job`` and
+        ``build``; on failure also ``code`` and ``detail``.
+    """
+    import os as _os
+
+    job_name = params.get("job_name", "")
+    build_number = params.get("build_number", 0)
+    jenkinsfile = params.get("jenkinsfile", "")
+
+    # ``type: file`` may arrive as a path string (plugin callbacks do not
+    # pre-read file contents) — read it when it points at an existing file.
+    if jenkinsfile and _os.path.isfile(jenkinsfile):
+        with open(jenkinsfile, encoding="utf-8") as _f:
+            jenkinsfile = _f.read()
+
+    path = _job_path(job_name)
+
+    crumb = http_client.default_headers.get("Jenkins-Crumb", "")
+    if not crumb:
+        try:
+            resp = http_client.request("GET", "/crumbIssuer/api/json")
+            crumb = resp.json().get("crumb", "")
+        except Exception:
+            crumb = ""
+
+    # F12-verified Replay form (4 fields; missing ones cause 400/500).
+    form_data = {
+        "_.mainScript": jenkinsfile,
+        "Submit": "运行",
+        "Jenkins-Crumb": crumb,
+        "json": json.dumps(
+            {"mainScript": jenkinsfile, "": "", "Submit": "运行", "Jenkins-Crumb": crumb},
+            ensure_ascii=False,
+        ),
+    }
+    # Form-encoded POST — _session directly (HttpClient.request would JSON-encode).
+    resp = http_client._session.post(
+        f"{http_client.base_url}{path}/{build_number}/replay/run",
+        data=form_data,
+        headers={**http_client.default_headers, "Content-Type": "application/x-www-form-urlencoded"},
+        timeout=getattr(http_client, "timeout", 30),
+        allow_redirects=False,
+    )
+    if resp.status_code in (302, 200):
+        return {"status": "replayed", "job": job_name, "build": build_number}
+    return {"status": "failed", "code": resp.status_code, "detail": resp.text[:300]}
 
 
 @register_method("jenkins_node_create")

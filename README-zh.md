@@ -116,8 +116,9 @@ jcli build get <job> <number>    # 查看构建详情
 jcli build log <job> <number>    # 查看控制台日志
 jcli build trigger <job>         # 触发构建
 jcli build trigger <job> -p KEY=VAL  # 带参数触发
-jcli build replay <job> <number> # 重放构建（复用上次参数）
-jcli build replay <job> <number> --set KEY=VAL  # 重放并覆盖参数（可多次）
+jcli build rebuild <job> <number> # 重建（复用上次参数）
+jcli build rebuild <job> <number> --set KEY=VAL  # 重建并覆盖参数（可多次）
+jcli build replay <job> <number> <jenkinsfile> # 用指定 Jenkinsfile 回放构建
 jcli build stop <job> <number>   # 停止构建
 jcli build queue                 # 查看构建队列
 ```

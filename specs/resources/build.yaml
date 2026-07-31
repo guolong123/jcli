@@ -118,8 +118,8 @@ methods:
         - name: relativePath
           alias: Path
 
-  replay:
-    type: plugin:jenkins_build_replay
+  rebuild:
+    type: plugin:jenkins_build_rebuild
     params:
       body:
         - name: job_name
@@ -132,3 +132,18 @@ methods:
           type: string
           multiple: true
           description: Override parameters (KEY=VAL)
+
+  replay:
+    type: plugin:jenkins_build_replay
+    params:
+      body:
+        - name: job_name
+          type: string
+          argument: true
+        - name: build_number
+          type: int
+          argument: true
+        - name: jenkinsfile
+          type: file
+          argument: true
+          description: Jenkinsfile content to replay with
