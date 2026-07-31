@@ -25,6 +25,19 @@ methods:
         - name: name
           type: string
           argument: true
+    output:
+      items_path: $
+      fields:
+        - name: name
+          alias: Name
+        - name: description
+          alias: Description
+        - name: color
+          alias: Color
+        - name: buildable
+          alias: Buildable
+        - name: disabled
+          alias: Disabled
   create:
     type: plugin:jenkins_job_create
     params:
