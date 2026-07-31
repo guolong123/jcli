@@ -136,7 +136,7 @@ methods:
         - name: name
           type: string
           argument: true
-  create_folder:
+  create-folder:
     http:
       method: POST
       path: createItem
@@ -148,7 +148,7 @@ methods:
         - name: name
           type: string
           argument: true
-  delete_folder:
+  delete-folder:
     http:
       method: POST
       path: job/{{ name }}/doDelete

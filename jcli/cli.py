@@ -304,6 +304,21 @@ def set_group_help(cli: click.Group) -> None:
 # CLI construction & entry point
 # ---------------------------------------------------------------------------
 
+# Commands belonging to jcli.  cliyard auto-registers ``auth`` (built-in)
+# and any global plugins found in ~/.cliyard/plugins/ (other projects), so
+# only whitelisted top-level commands are kept on the jcli command surface.
+_ALLOWED_TOP_LEVEL_COMMANDS = {
+    "job", "build", "node", "plugin", "credential", "pipeline", "view",
+    "system", "config", "skills", "completion", "auth",
+}
+
+
+def _prune_non_jcli_commands(cli: click.Group) -> None:
+    """Drop top-level commands that are not part of jcli."""
+    for name in list(cli.commands.keys()):
+        if name not in _ALLOWED_TOP_LEVEL_COMMANDS:
+            cli.commands.pop(name)
+
 
 def _build_cli(spec_dir: Path, server: str | None, profile: str | None) -> click.Group:
     """Create the cliyard CLI and apply the jcli wrapper layer."""
@@ -313,7 +328,19 @@ def _build_cli(spec_dir: Path, server: str | None, profile: str | None) -> click
     add_completion_command(cli)
     wrap_subcommand_callbacks(cli)
     set_group_help(cli)
+    _prune_non_jcli_commands(cli)
     return cli
+
+
+def _ensure_machine_consumable_output() -> None:
+    """Default terminal width to 500 columns when not in a real TTY.
+
+    cliyard's rich ``Console()`` hard-wraps long lines at the terminal width,
+    which corrupts ``--format json/yaml/csv`` output (newlines injected inside
+    the data).  A generous default COLUMNS keeps machine-consumable output
+    intact unless the user explicitly overrides it.
+    """
+    os.environ.setdefault("COLUMNS", "500")
 
 
 def create_jcli_cli(argv: list[str] | None = None) -> click.Group:
@@ -323,6 +350,7 @@ def create_jcli_cli(argv: list[str] | None = None) -> click.Group:
     ``-s/--server`` is stripped from it (cliyard's runner pre-extraction).
     Tests pass an explicit argv to avoid touching ``sys.argv``.
     """
+    _ensure_machine_consumable_output()
     if argv is None:
         argv = sys.argv[1:]
         cleaned, server = extract_server_override(argv)

@@ -6,16 +6,18 @@ methods:
       method: GET
       path: "job/{{ job_name | replace('/', '/job/') }}/api/json"
       query:
-        tree: "builds[number,url,result,timestamp,duration,building]"
+        tree: "builds[number,url,result,timestamp,duration,building]{% if limit > 0 %}{0,{{ limit - 1 }}}{% endif %}"
+      body: ''
     params:
       path:
         - name: job_name
           type: string
           argument: true
-      query:
+      body:
         - name: limit
           type: int
           default: 10
+          description: Maximum builds to show
     output:
       items_path: $.builds
       fields:

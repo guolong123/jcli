@@ -43,9 +43,18 @@ methods:
         - name: short_name
           type: string
           argument: true
-  check_updates:
+  check-updates:
     http:
       method: POST
       path: pluginManager/checkUpdates
     output:
       format: json
+  restart:
+    http:
+      method: POST
+      path: "pluginManager/plugin/{{ short_name }}/restart"
+    params:
+      path:
+        - name: short_name
+          type: string
+          argument: true

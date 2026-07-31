@@ -83,8 +83,7 @@ echo ""
 # package-data 会把它们打进 wheel/sdist。
 echo "📦 同步 cliyard specs 到包内..."
 cp -r specs jcli/specs
-# 排除 cliyard 运行时产物（jcli_commands.py / __pycache__），避免打进 wheel
-rm -rf jcli/specs/plugins/jcli_commands.py
+# 仅排除 __pycache__，保留全部插件（含 jcli_commands.py 的 config/skills/completion 命令）
 find jcli/specs -type d -name '__pycache__' -prune -exec rm -rf {} +
 echo "✅ specs 已同步"
 echo ""
