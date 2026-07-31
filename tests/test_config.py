@@ -1,4 +1,11 @@
-"""Unit tests for jcli.sdk.config."""
+"""Unit tests for jcli.sdk.config.
+
+jcli 2.0 mapping (v1 → v2):
+- ``jcli.sdk.config.Config`` is unchanged and shared by v1/v2.
+- The ``config`` CLI command group migrated from ``jcli/plugins/config.py``
+  to ``specs/plugins/jcli_commands.py`` (init/show/list/set/add/delete/use),
+  which calls the same ``Config`` class — no test changes required.
+"""
 
 import os
 from pathlib import Path

@@ -1,0 +1,15 @@
+name: jcli
+version: "0.1.0"
+description: Jenkins CLI tool
+output:
+  default: table
+server:
+  base_url: http://localhost:8090
+auth:
+  steps:
+    - name: basic
+      type: plugin:jenkins_basic
+      config: {}
+    - name: crumb
+      type: plugin:jenkins_crumb
+      config: {}

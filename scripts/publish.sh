@@ -55,7 +55,7 @@ echo "Dry Run:  $DRY_RUN"
 echo ""
 
 # 检查是否在 git 仓库中
-if git rev-parse --git-dir > /dev/null  twofull 2>&1; then
+if git rev-parse --git-dir > /dev/null 2>&1; then
     # 检查是否有未提交的更改
     if ! git diff --quiet; then
         echo "⚠️  警告: 有未提交的更改"
@@ -74,14 +74,30 @@ fi
 
 # 清理旧的构建文件
 echo "🧹 清理旧的构建文件..."
-rm -rf dist/ build/ *.egg-info/
+rm -rf dist/ build/ *.egg-info/ jcli/specs/
 echo "✅ 清理完成"
+echo ""
+
+# 将 cliyard YAML specs 复制进包内（jcli/specs/）。
+# cli.py 运行时从包内 specs/ 加载命令定义，pyproject.toml 的
+# package-data 会把它们打进 wheel/sdist。
+echo "📦 同步 cliyard specs 到包内..."
+cp -r specs jcli/specs
+# 排除 cliyard 运行时产物（jcli_commands.py / __pycache__），避免打进 wheel
+rm -rf jcli/specs/plugins/jcli_commands.py
+find jcli/specs -type d -name '__pycache__' -prune -exec rm -rf {} +
+echo "✅ specs 已同步"
 echo ""
 
 # 构建
 echo "📦 构建源码包和 wheel..."
 python3 -m build
 echo "✅ 构建完成"
+echo ""
+
+# 清理构建期间复制的包内 specs，避免污染工作区
+rm -rf jcli/specs
+echo "✅ 已清理构建期 specs 副本"
 echo ""
 
 # 显示构建结果

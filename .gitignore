@@ -149,3 +149,6 @@ Thumbs.db
 
 # OpenCode
 .omo/
+
+# Build-time copy of cliyard specs (scripts/publish.sh manages this)
+jcli/specs/

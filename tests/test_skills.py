@@ -1,4 +1,12 @@
-"""Tests for jcli.plugins.skills — Skills management commands."""
+"""Tests for jcli.plugins.skills — Skills management commands.
+
+jcli 2.0 mapping (v1 → v2):
+- v1 ``jcli/plugins/skills.py`` is kept as the SDK/testing target (helpers
+  ``parse_skill_metadata`` / ``get_bundled_skills`` / ``find_skill_dir`` …).
+- The ``skills`` CLI command group migrated verbatim to
+  ``specs/plugins/jcli_commands.py`` (backed by the same helpers), so this
+  file still tests the real implementation.
+"""
 
 from __future__ import annotations
 

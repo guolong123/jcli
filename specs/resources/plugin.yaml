@@ -1,0 +1,51 @@
+name: plugin
+description: Manage Jenkins plugins
+methods:
+  list:
+    description: List installed plugins
+    http:
+      method: GET
+      path: pluginManager/api/json
+      query:
+        tree: "plugins[shortName,version,active,hasUpdate]"
+    output:
+      items_path: $.plugins
+      fields:
+        - name: shortName
+          alias: Name
+        - name: version
+          alias: Version
+        - name: active
+          alias: Active
+        - name: hasUpdate
+          alias: Update
+  get:
+    type: plugin:jenkins_plugin_get
+    params:
+      body:
+        - name: short_name
+          type: string
+          argument: true
+  install:
+    type: plugin:jenkins_plugin_install
+    params:
+      body:
+        - name: plugins
+          type: string
+          multiple: true
+          argument: true
+  uninstall:
+    http:
+      method: POST
+      path: "pluginManager/plugin/{{ short_name }}/doUninstall"
+    params:
+      path:
+        - name: short_name
+          type: string
+          argument: true
+  check_updates:
+    http:
+      method: POST
+      path: pluginManager/checkUpdates
+    output:
+      format: json

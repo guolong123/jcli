@@ -1,0 +1,64 @@
+name: system
+description: Jenkins system information and management
+methods:
+  info:
+    type: plugin:jenkins_system_info
+    params:
+      body: {}
+
+  load:
+    type: plugin:jenkins_system_load
+    params:
+      body: {}
+
+  quiet-down:
+    http:
+      method: POST
+      path: quietDown
+      query:
+        reason: '{{ reason }}'
+    params:
+      query:
+        - name: reason
+          type: string
+
+  cancel-quiet-down:
+    http:
+      method: POST
+      path: cancelQuietDown
+
+  restart:
+    http:
+      method: POST
+      path: safeRestart
+
+  script:
+    type: plugin:jenkins_system_script
+    params:
+      body:
+        - name: script
+          type: string
+          argument: true
+
+  users:
+    http:
+      method: GET
+      path: asynchPeople/api/json
+    output:
+      items_path: $.users
+      fields:
+        - name: id
+          alias: ID
+        - name: fullName
+          alias: Name
+
+  token:
+    type: plugin:jenkins_system_token
+    params:
+      body:
+        - name: username
+          type: string
+          argument: true
+        - name: token_name
+          type: string
+          default: jcli-generated

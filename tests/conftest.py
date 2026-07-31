@@ -4,6 +4,23 @@ import pytest
 import responses
 
 
+@pytest.fixture(autouse=True)
+def clean_plugin_registry():
+    """Clean cliyard PluginRegistry before/after every test.
+
+    cliyard 的 PluginRegistry 是全局单例，且 discovery 的 _scanned_dirs
+    会使目录只扫描一次。测试间必须清理，防止后续 2.0 测试
+    （spec/plugins 加载）受先前测试状态污染。
+    """
+    from cliyard.plugin import PluginRegistry
+    from cliyard.plugin.discovery import _scanned_dirs
+
+    PluginRegistry.clear()
+    _scanned_dirs.clear()
+    yield
+    PluginRegistry.clear()
+
+
 @pytest.fixture
 def mock_jenkins_server():
     """Activate responses mock for Jenkins HTTP calls.

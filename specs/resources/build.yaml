@@ -1,0 +1,132 @@
+name: build
+description: Manage Jenkins builds
+methods:
+  list:
+    http:
+      method: GET
+      path: "job/{{ job_name | replace('/', '/job/') }}/api/json"
+      query:
+        tree: "builds[number,url,result,timestamp,duration,building]"
+    params:
+      path:
+        - name: job_name
+          type: string
+          argument: true
+      query:
+        - name: limit
+          type: int
+          default: 10
+    output:
+      items_path: $.builds
+      fields:
+        - name: number
+          alias: Number
+        - name: result
+          alias: Result
+        - name: duration
+          alias: Duration
+        - name: building
+          alias: Building
+
+  get:
+    http:
+      method: GET
+      path: "job/{{ job_name | replace('/', '/job/') }}/{{ number }}/api/json"
+    params:
+      path:
+        - name: job_name
+          type: string
+          argument: true
+        - name: number
+          type: int
+          argument: true
+
+  trigger:
+    type: plugin:jenkins_build_trigger
+    params:
+      body:
+        - name: job_name
+          type: string
+          argument: true
+        - name: params
+          type: string
+          multiple: true
+
+  log:
+    http:
+      method: GET
+      path: "job/{{ job_name | replace('/', '/job/') }}/{{ number }}/consoleText"
+    params:
+      path:
+        - name: job_name
+          type: string
+          argument: true
+        - name: number
+          type: int
+          argument: true
+    output:
+      format: text
+
+  stop:
+    http:
+      method: POST
+      path: "job/{{ job_name | replace('/', '/job/') }}/{{ number }}/stop"
+    params:
+      path:
+        - name: job_name
+          type: string
+          argument: true
+        - name: number
+          type: int
+          argument: true
+
+  queue:
+    http:
+      method: GET
+      path: queue/api/json
+    output:
+      items_path: $.items
+      fields:
+        - name: id
+          alias: ID
+        - name: why
+          alias: Why
+        - name: inQueueSince
+          alias: Since
+
+  artifacts:
+    http:
+      method: GET
+      path: "job/{{ job_name | replace('/', '/job/') }}/{{ build_number }}/api/json"
+      query:
+        tree: "artifacts[fileName,relativePath]"
+    params:
+      path:
+        - name: job_name
+          type: string
+          argument: true
+        - name: build_number
+          type: int
+          argument: true
+    output:
+      items_path: $.artifacts
+      fields:
+        - name: fileName
+          alias: File
+        - name: relativePath
+          alias: Path
+
+  replay:
+    type: plugin:jenkins_build_replay
+    params:
+      body:
+        - name: job_name
+          type: string
+          argument: true
+        - name: build_number
+          type: int
+          argument: true
+        - name: set
+          type: string
+          multiple: true
+          description: Override parameters (KEY=VAL)

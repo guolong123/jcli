@@ -1,0 +1,58 @@
+name: pipeline
+description: Manage Jenkins pipelines
+methods:
+  stages:
+    http:
+      method: GET
+      path: "job/{{ job_name | replace('/', '/job/') }}/{{ build_number }}/wfapi/describe"
+    params:
+      path:
+        - name: job_name
+          type: string
+          argument: true
+        - name: build_number
+          type: int
+          argument: true
+    output:
+      items_path: $.stages
+      fields:
+        - name: name
+          alias: Stage
+        - name: status
+          alias: Status
+        - name: durationMillis
+          alias: Duration
+  log:
+    http:
+      method: GET
+      path: "job/{{ job_name | replace('/', '/job/') }}/{{ build_number }}/execution/node/{{ node_id }}/wfapi/log"
+    params:
+      path:
+        - name: job_name
+          type: string
+          argument: true
+        - name: build_number
+          type: int
+          argument: true
+        - name: node_id
+          type: string
+          argument: true
+  validate:
+    type: plugin:jenkins_pipeline_validate
+    params:
+      body:
+        - name: jenkinsfile
+          type: file
+          argument: true
+  pending:
+    http:
+      method: GET
+      path: "job/{{ job_name | replace('/', '/job/') }}/{{ build_number }}/wfapi/pendingInputActions"
+    params:
+      path:
+        - name: job_name
+          type: string
+          argument: true
+        - name: build_number
+          type: int
+          argument: true

@@ -1,0 +1,70 @@
+name: view
+description: Manage Jenkins views
+methods:
+  list:
+    http:
+      method: GET
+      path: api/json
+      query:
+        tree: "views[name,url,jobs[name]]"
+    output:
+      items_path: $.views
+      fields:
+        - name: name
+          alias: Name
+        - name: url
+          alias: URL
+        - name: jobs
+          alias: Jobs
+  get:
+    http:
+      method: GET
+      path: "view/{{ name }}/api/json"
+    params:
+      path:
+        - name: name
+          type: string
+          argument: true
+  create:
+    http:
+      method: POST
+      path: createView
+      query:
+        name: '{{ name }}'
+      headers:
+        Content-Type: application/xml
+      body: '{{ config_xml }}'
+    params:
+      query:
+        - name: name
+          type: string
+          argument: true
+      body:
+        - name: config_xml
+          type: file
+          argument: true
+  update:
+    http:
+      method: POST
+      path: "view/{{ name }}/config.xml"
+      headers:
+        Content-Type: application/xml
+      body: '{{ config_xml }}'
+    params:
+      path:
+        - name: name
+          type: string
+          argument: true
+      body:
+        - name: config_xml
+          type: file
+          argument: true
+  delete:
+    http:
+      method: POST
+      path: "view/{{ name }}/doDelete"
+    params:
+      path:
+        - name: name
+          type: string
+          argument: true

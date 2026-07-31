@@ -1,0 +1,159 @@
+name: job
+description: Manage Jenkins jobs
+methods:
+  list:
+    http:
+      method: GET
+      path: api/json
+      query:
+        tree: jobs[name,url,color]
+    output:
+      items_path: $.jobs
+      fields:
+        - name: name
+          alias: Name
+        - name: url
+          alias: URL
+        - name: color
+          alias: Color
+  get:
+    http:
+      method: GET
+      path: job/{{ name }}/api/json
+    params:
+      path:
+        - name: name
+          type: string
+          argument: true
+  create:
+    type: plugin:jenkins_job_create
+    params:
+      path:
+        - name: name
+          type: string
+          argument: true
+      body:
+        - name: config_file
+          type: file
+        - name: job_type
+          type: enum
+          choices: [freestyle, pipeline]
+        - name: git_url
+          type: string
+        - name: git_branch
+          type: string
+          default: main
+        - name: description
+          type: string
+        - name: shell
+          type: string
+        - name: cron
+          type: string
+        - name: jenkinsfile
+          type: string
+          default: Jenkinsfile
+        - name: script
+          type: string
+  update:
+    http:
+      method: POST
+      path: job/{{ name }}/config.xml
+      headers:
+        Content-Type: application/xml
+      body: '{{ config_xml }}'
+    params:
+      path:
+        - name: name
+          type: string
+          argument: true
+      body:
+        - name: config_xml
+          type: file
+          argument: true
+  delete:
+    http:
+      method: POST
+      path: job/{{ name }}/doDelete
+    params:
+      path:
+        - name: name
+          type: string
+          argument: true
+  copy:
+    http:
+      method: POST
+      path: createItem
+      query:
+        name: '{{ new_name }}'
+        mode: copy
+        from: '{{ from_name }}'
+    params:
+      path:
+        - name: from_name
+          type: string
+          argument: true
+        - name: new_name
+          type: string
+          argument: true
+  rename:
+    http:
+      method: POST
+      path: job/{{ old_name }}/doRename
+      query:
+        newName: '{{ new_name }}'
+    params:
+      path:
+        - name: old_name
+          type: string
+          argument: true
+        - name: new_name
+          type: string
+          argument: true
+  enable:
+    http:
+      method: POST
+      path: job/{{ name }}/enable
+    params:
+      path:
+        - name: name
+          type: string
+          argument: true
+  disable:
+    http:
+      method: POST
+      path: job/{{ name }}/disable
+    params:
+      path:
+        - name: name
+          type: string
+          argument: true
+  config:
+    http:
+      method: GET
+      path: job/{{ name }}/config.xml
+    params:
+      path:
+        - name: name
+          type: string
+          argument: true
+  create_folder:
+    http:
+      method: POST
+      path: createItem
+      query:
+        name: '{{ name }}'
+        mode: com.cloudbees.hudson.plugins.folder.Folder
+    params:
+      path:
+        - name: name
+          type: string
+          argument: true
+  delete_folder:
+    http:
+      method: POST
+      path: job/{{ name }}/doDelete
+    params:
+      path:
+        - name: name
+          type: string
+          argument: true

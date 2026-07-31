@@ -5,10 +5,37 @@
 ## 特性
 
 - **8 个命令模块**：Job、构建、节点、插件、凭据、Pipeline、视图、系统管理
+- **Spec 驱动 CLI**：命令由 `specs/` 下的 cliyard YAML 声明并在运行时生成，无需手写 Click 命令组
 - **Skills 管理**：内置 9 个技能文档，支持安装、卸载、查看
 - **多种输出格式**：表格（默认）、JSON、YAML
 - **多实例管理**：通过 Profile 管理多个 Jenkins 服务器
 - **CSRF 自动处理**：自动处理 Jenkins CSRF 保护
+
+## 架构
+
+jcli 2.0 由 [cliyard](https://pypi.org/project/cliyard/) YAML specs 驱动，取代手写的 Click 命令组。启动时 `jcli/cli.py` 定位 spec 目录（`JCLI_SPEC_DIR` 环境变量 > 包内 `specs/` > 仓库根 `specs/`），调用 `cliyard.runtime.create_cli()` 构建完整命令树。增删命令只需编辑 YAML 文件，无需改动 Python 代码。
+
+```
+specs/
+  _auth.yaml          服务器认证链（basic auth + crumb，以 cliyard 插件形式）
+  resources/          每个 Jenkins 领域一个 YAML spec
+    job.yaml          job list/get/create/config/copy/enable/disable/delete
+    build.yaml        build list/get/trigger/replay/log/stop/queue
+    node.yaml         node list/get/delete/toggle
+    plugin.yaml       plugin list/get/install/uninstall
+    credential.yaml   credential list/get/create/delete
+    pipeline.yaml     pipeline stages/log/pending/validate
+    view.yaml         view list/get/create/delete
+    system.yaml       system info/load/quiet-down/restart/script
+  plugins/            复杂逻辑的 Python 方法插件
+    jenkins_auth.py          Basic + crumb 认证
+    jenkins_methods.py       构建触发/replay、节点创建
+    jenkins_pipeline_validate.py  Jenkinsfile 校验
+    jenkins_plugin.py        插件安装/卸载/update-center
+    jenkins_system.py        Groovy 脚本、quiet-down、重启
+```
+
+资源 spec 将命令名映射为普通 HTTP 调用（method、path、params、output）或 `plugin:` 引用；`_auth.yaml` 中的认证链会为每个请求注入 `Authorization` 和 crumb 头。
 
 ## 安装
 
@@ -74,6 +101,8 @@ jcli build get <job> <number>    # 查看构建详情
 jcli build log <job> <number>    # 查看控制台日志
 jcli build trigger <job>         # 触发构建
 jcli build trigger <job> -p KEY=VAL  # 带参数触发
+jcli build replay <job> <number> # 重放构建（复用上次参数）
+jcli build replay <job> <number> --set KEY=VAL  # 重放并覆盖参数（可多次）
 jcli build stop <job> <number>   # 停止构建
 jcli build queue                 # 查看构建队列
 ```
@@ -212,22 +241,18 @@ pytest --cov=jcli --cov-report=term-missing
 
 ```
 jcli/
-  cli.py              CLI 入口
-  plugins/            命令模块
-    job.py            Job 管理
-    build.py          构建管理
-    node.py           节点管理
-    plugin.py         插件管理
-    credential.py     凭据管理
-    pipeline.py       Pipeline 管理
-    view.py           视图管理
-    system.py         系统管理
-    skills.py         Skills 管理
+  cli.py              CLI 入口：从 cliyard YAML specs 构建 Click 命令树
+  cli_helpers.py      全局选项注入与 profile/format 处理
+  plugins/            遗留手写命令模块（保留以兼容 SDK）
   sdk/                SDK 库
     client.py         Jenkins REST API 客户端
     config.py         配置管理
     output/           输出格式化
   skills/             内置技能文档
+specs/                cliyard YAML specs（命令定义）
+  _auth.yaml          认证链：basic + crumb 插件
+  resources/          每个 Jenkins 领域一个 YAML（job、build、node...）
+  plugins/            复杂逻辑的 Python 方法插件
 tests/                测试
 ```
 

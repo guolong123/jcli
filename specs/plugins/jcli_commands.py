@@ -1,0 +1,686 @@
+"""Top-level command plugins for jcli 2.0: config, skills, completion.
+
+Migrated verbatim from jcli v1:
+
+* ``config``  — jcli/plugins/config.py
+* ``skills``  — jcli/plugins/skills.py
+* ``completion`` — jcli/cli.py ``add_completion_command``
+
+Each group is registered as a cliyard command plugin
+(``@register_command``), so ``create_cli`` attaches it to the top-level
+Click group.  Command semantics and output formats are unchanged from v1.
+"""
+
+from __future__ import annotations
+
+import re
+from pathlib import Path
+from typing import Any
+
+import click
+
+from cliyard.plugin import register_command
+
+from jcli.cli_helpers import get_formatter
+from jcli.sdk.config import Config, ProfileNotFoundError
+from jcli.sdk.output.formatter import OutputFormatter
+
+
+# =====================================================================
+# Config commands (verbatim from jcli/plugins/config.py)
+# =====================================================================
+
+
+def _get_config(ctx: click.Context) -> Config:
+    """Get or create Config from Click context."""
+    if "config" not in ctx.obj:
+        ctx.obj["config"] = Config().load()
+    return ctx.obj["config"]
+
+
+def _get_config_formatter(ctx: click.Context) -> OutputFormatter:
+    """Get or create OutputFormatter from Click context."""
+    if "formatter" not in ctx.obj:
+        fmt = ctx.obj.get("format", "table")
+        ctx.obj["formatter"] = OutputFormatter(fmt)
+    return ctx.obj["formatter"]
+
+
+@click.group()
+def config_group():
+    """Manage jcli configuration."""
+    pass
+
+
+@config_group.command("init")
+@click.option("--force", is_flag=True, help="Overwrite existing config file")
+@click.pass_context
+def config_init(ctx: click.Context, force: bool):
+    """Initialize configuration file with default template."""
+    cfg = _get_config(ctx)
+    fmt = _get_config_formatter(ctx)
+
+    if cfg.config_path.exists() and not force:
+        fmt.print_error(f"Config file already exists: {cfg.config_path}")
+        fmt.print_info("Use --force to overwrite")
+        return
+
+    # Create fresh config with template
+    cfg = Config()
+    cfg.load()
+    cfg.save()
+
+    fmt.print_success(f"Config file created: {cfg.config_path}")
+    fmt.print_info("Edit it with your Jenkins server details:")
+    fmt.print_info(f"  url: https://jenkins.example.com")
+    fmt.print_info(f"  username: admin")
+    fmt.print_info(f"  api_token: your-api-token-here")
+
+
+@config_group.command("show")
+@click.option("--profile", "-p", help="Show specific profile (default: active)")
+@click.pass_context
+def config_show(ctx: click.Context, profile: str | None):
+    """Show configuration details."""
+    cfg = _get_config(ctx)
+    fmt = _get_config_formatter(ctx)
+
+    if profile:
+        try:
+            data = cfg.get_profile(profile)
+        except ProfileNotFoundError:
+            fmt.print_error(f"Profile '{profile}' not found")
+            return
+        active_name = cfg.get_active_profile_name()
+        is_active = " (active)" if profile == active_name else ""
+        fmt.print_info(f"Profile: {profile}{is_active}")
+        _show_profile(fmt, data)
+    else:
+        active_name = cfg.get_active_profile_name()
+        fmt.print_info(f"Config file: {cfg.config_path}")
+        fmt.print_info(f"Active profile: {active_name}")
+        fmt.print_info("")
+        try:
+            data = cfg.get_active_profile()
+            _show_profile(fmt, data)
+        except ProfileNotFoundError:
+            fmt.print_error(f"Active profile '{active_name}' not found")
+
+
+def _show_profile(fmt: OutputFormatter, data: dict):
+    """Display profile fields."""
+    fields = [
+        ("url", "URL"),
+        ("username", "Username"),
+        ("api_token", "API Token"),
+        ("description", "Description"),
+    ]
+    for key, label in fields:
+        value = data.get(key, "")
+        # Mask token for display
+        if key == "api_token" and value and len(value) > 8:
+            display = value[:4] + "****" + value[-4:]
+        else:
+            display = value
+        fmt.print_info(f"  {label}: {display}")
+
+
+@config_group.command("list")
+@click.pass_context
+def config_list(ctx: click.Context):
+    """List all configured profiles."""
+    cfg = _get_config(ctx)
+    fmt = _get_config_formatter(ctx)
+
+    profiles = cfg.list_profiles()
+    active_name = cfg.get_active_profile_name()
+
+    if not profiles:
+        fmt.print_info("No profiles configured. Run 'jcli config init' to create one.")
+        return
+
+    headers = ["Name", "URL", "Username", "Active"]
+    rows = []
+    for name, data in profiles.items():
+        active_mark = "✓" if name == active_name else ""
+        rows.append([
+            name,
+            data.get("url", ""),
+            data.get("username", ""),
+            active_mark,
+        ])
+
+    fmt.print_table(headers, rows, title="Profiles")
+
+
+@config_group.command("set")
+@click.argument("profile")
+@click.argument("field", type=click.Choice(["url", "username", "api_token", "description"]))
+@click.argument("value")
+@click.pass_context
+def config_set(ctx: click.Context, profile: str, field: str, value: str):
+    """Set a configuration field for a profile.
+
+    Examples:
+        jcli config set dev url https://jenkins-dev.example.com
+        jcli config set dev username admin
+        jcli config set dev api_token abc123
+        jcli config set dev description "Development Jenkins"
+    """
+    cfg = _get_config(ctx)
+    fmt = _get_config_formatter(ctx)
+
+    try:
+        data = cfg.get_profile(profile)
+    except ProfileNotFoundError:
+        fmt.print_error(f"Profile '{profile}' not found")
+        fmt.print_info(f"Create it first with: jcli config add {profile}")
+        return
+
+    # Update the field
+    data[field] = value
+    cfg.add_profile(
+        name=profile,
+        url=data.get("url", ""),
+        username=data.get("username", ""),
+        api_token=data.get("api_token", ""),
+        description=data.get("description", ""),
+    )
+
+    fmt.print_success(f"Updated profile '{profile}': {field} = {value}")
+
+
+@config_group.command("add")
+@click.argument("profile")
+@click.option("--url", "-u", default="", help="Jenkins server URL")
+@click.option("--username", default="", help="Jenkins username")
+@click.option("--api-token", default="", help="Jenkins API token")
+@click.option("--description", "-d", default="", help="Profile description")
+@click.pass_context
+def config_add(
+    ctx: click.Context,
+    profile: str,
+    url: str,
+    username: str,
+    api_token: str,
+    description: str,
+):
+    """Add a new configuration profile.
+
+    Examples:
+        jcli config add dev --url https://jenkins-dev.example.com --username admin
+        jcli config add prod -u https://jenkins-prod.example.com -d "Production"
+    """
+    cfg = _get_config(ctx)
+    fmt = _get_config_formatter(ctx)
+
+    # Check if profile already exists
+    profiles = cfg.list_profiles()
+    if profile in profiles:
+        fmt.print_error(f"Profile '{profile}' already exists")
+        fmt.print_info(f"Use 'jcli config set {profile} <field> <value>' to update")
+        return
+
+    cfg.add_profile(
+        name=profile,
+        url=url or "https://jenkins.example.com",
+        username=username or "admin",
+        api_token=api_token or "",
+        description=description or f"{profile} Jenkins instance",
+    )
+
+    fmt.print_success(f"Profile '{profile}' added")
+    fmt.print_info("Configure it with:")
+    fmt.print_info(f"  jcli config set {profile} url https://your-jenkins.com")
+    fmt.print_info(f"  jcli config set {profile} api_token your-token")
+
+
+@config_group.command("delete")
+@click.argument("profile")
+@click.option("--yes", "-y", is_flag=True, help="Skip confirmation")
+@click.pass_context
+def config_delete(ctx: click.Context, profile: str, yes: bool):
+    """Delete a configuration profile.
+
+    Examples:
+        jcli config delete dev
+        jcli config delete old-server --yes
+    """
+    cfg = _get_config(ctx)
+    fmt = _get_config_formatter(ctx)
+
+    profiles = cfg.list_profiles()
+    if profile not in profiles:
+        fmt.print_error(f"Profile '{profile}' not found")
+        return
+
+    if not yes:
+        if not click.confirm(f"Delete profile '{profile}'?"):
+            fmt.print_info("Cancelled")
+            return
+
+    cfg.remove_profile(profile)
+    fmt.print_success(f"Profile '{profile}' deleted")
+
+
+@config_group.command("use")
+@click.argument("profile")
+@click.pass_context
+def config_use(ctx: click.Context, profile: str):
+    """Switch active profile.
+
+    Examples:
+        jcli config use prod
+        jcli config use dev
+    """
+    cfg = _get_config(ctx)
+    fmt = _get_config_formatter(ctx)
+
+    try:
+        cfg.set_active_profile(profile)
+    except ProfileNotFoundError:
+        fmt.print_error(f"Profile '{profile}' not found")
+        profiles = cfg.list_profiles()
+        if profiles:
+            fmt.print_info(f"Available profiles: {', '.join(profiles.keys())}")
+        return
+
+    fmt.print_success(f"Active profile set to '{profile}'")
+
+
+# =====================================================================
+# Skills commands (verbatim from jcli/plugins/skills.py)
+# =====================================================================
+
+# Bundled skills directory (ships with jcli package):
+# <repo-root>/jcli/skills/jcli/*  — plugin lives in <repo-root>/specs/plugins/
+BUNDLED_SKILLS_DIR = Path(__file__).resolve().parent.parent.parent / "jcli" / "skills" / "jcli"
+
+# Default install directory for opencode
+DEFAULT_INSTALL_DIR = Path.home() / ".config" / "opencode" / "skills"
+
+# SKILL.md frontmatter pattern
+FRONTMATTER_PATTERN = re.compile(r"^---\s*\n(.*?)\n---\s*\n", re.DOTALL)
+
+
+def parse_skill_metadata(skill_dir: Path) -> dict[str, Any]:
+    """Parse SKILL.md frontmatter to extract metadata.
+
+    Returns dict with keys: name, version, description, allowed_tools, path
+    """
+    skill_md = skill_dir / "SKILL.md"
+    metadata: dict[str, Any] = {
+        "name": skill_dir.name,
+        "version": "",
+        "description": "",
+        "allowed_tools": [],
+        "path": str(skill_dir),
+    }
+
+    if not skill_md.exists():
+        return metadata
+
+    try:
+        content = skill_md.read_text(encoding="utf-8")
+    except OSError:
+        return metadata
+
+    # Extract frontmatter
+    match = FRONTMATTER_PATTERN.match(content)
+    if not match:
+        return metadata
+
+    frontmatter = match.group(1)
+
+    # Simple YAML parsing without pyyaml dependency
+    for line in frontmatter.split("\n"):
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+
+        if line.startswith("name:"):
+            metadata["name"] = line.split(":", 1)[1].strip().strip("'\"")
+        elif line.startswith("version:"):
+            metadata["version"] = line.split(":", 1)[1].strip().strip("'\"")
+        elif line.startswith("description:"):
+            desc = line.split(":", 1)[1].strip().strip("'\"")
+            metadata["description"] = desc
+        elif line.startswith("- ") and "allowed-tools" in frontmatter:
+            tool = line[2:].strip().strip("'\"")
+            metadata["allowed_tools"].append(tool)
+
+    return metadata
+
+
+def get_bundled_skills() -> list[dict[str, Any]]:
+    """Get all bundled skills from the skills directory."""
+    skills = []
+
+    if not BUNDLED_SKILLS_DIR.exists():
+        return skills
+
+    for skill_dir in sorted(BUNDLED_SKILLS_DIR.iterdir()):
+        if skill_dir.is_dir() and (skill_dir / "SKILL.md").exists():
+            metadata = parse_skill_metadata(skill_dir)
+            metadata["source"] = "bundled"
+            skills.append(metadata)
+
+    return skills
+
+
+def get_installed_skills(install_dir: Path | None = None) -> list[dict[str, Any]]:
+    """Get all installed skills from the install directory."""
+    target_dir = install_dir or DEFAULT_INSTALL_DIR
+    skills = []
+
+    if not target_dir.exists():
+        return skills
+
+    for skill_dir in sorted(target_dir.iterdir()):
+        if skill_dir.is_dir() and (skill_dir / "SKILL.md").exists():
+            metadata = parse_skill_metadata(skill_dir)
+            metadata["source"] = "installed"
+            # Check if it's a symlink to bundled
+            if skill_dir.is_symlink():
+                real_path = skill_dir.resolve()
+                if str(BUNDLED_SKILLS_DIR) in str(real_path):
+                    metadata["source"] = "bundled (symlink)"
+            skills.append(metadata)
+
+    return skills
+
+
+def find_skill_dir(name: str) -> Path | None:
+    """Find a bundled skill directory by name or frontmatter name."""
+    direct_path = BUNDLED_SKILLS_DIR / name
+    if direct_path.exists() and direct_path.is_dir():
+        return direct_path
+
+    for skill_dir in BUNDLED_SKILLS_DIR.iterdir():
+        if skill_dir.is_dir():
+            metadata = parse_skill_metadata(skill_dir)
+            if metadata["name"] == name:
+                return skill_dir
+
+    return None
+
+
+def install_skill(
+    name: str,
+    install_dir: Path | None = None,
+    force: bool = False,
+) -> bool:
+    """Install a skill by creating a symlink.
+
+    Returns True if successful, False otherwise.
+    """
+    target_dir = install_dir or DEFAULT_INSTALL_DIR
+
+    # Find the bundled skill
+    skill_source = find_skill_dir(name)
+    if not skill_source:
+        raise click.ClickException(f"Skill '{name}' not found in bundled skills.")
+
+    skill_dest = target_dir / name
+
+    # Check if already installed
+    if skill_dest.exists():
+        if force:
+            # Remove existing
+            if skill_dest.is_symlink():
+                skill_dest.unlink()
+            else:
+                raise click.ClickException(
+                    f"Skill '{name}' already installed at {skill_dest}. "
+                    "Use --force to overwrite."
+                )
+        else:
+            raise click.ClickException(
+                f"Skill '{name}' already installed at {skill_dest}. "
+                "Use --force to overwrite."
+            )
+
+    # Create install directory if needed
+    target_dir.mkdir(parents=True, exist_ok=True)
+
+    # Create symlink
+    skill_dest.symlink_to(skill_source)
+    return True
+
+
+def uninstall_skill(name: str, install_dir: Path | None = None) -> bool:
+    """Uninstall a skill by removing the symlink/directory.
+
+    Returns True if successful, False otherwise.
+    """
+    target_dir = install_dir or DEFAULT_INSTALL_DIR
+    skill_path = target_dir / name
+
+    if not skill_path.exists():
+        raise click.ClickException(f"Skill '{name}' not found in {target_dir}.")
+
+    if skill_path.is_symlink():
+        skill_path.unlink()
+    else:
+        raise click.ClickException(
+            f"Skill '{name}' is not a symlink. "
+            "Manual removal required for non-symlinked skills."
+        )
+
+    return True
+
+
+@click.group("skills", help="Manage jcli skills (list, install, uninstall).")
+def skills_group() -> None:
+    """Skills management commands."""
+
+
+@skills_group.command("list")
+@click.option("--installed", "-i", is_flag=True, help="Show only installed skills.")
+@click.option("--bundled", "-b", is_flag=True, help="Show only bundled skills.")
+@click.option("--dir", "install_dir", type=click.Path(exists=False), help="Custom install directory.")
+@click.pass_context
+def skills_list_cmd(ctx: click.Context, installed: bool, bundled: bool, install_dir: str | None) -> None:
+    """List all available skills."""
+    fmt = get_formatter(ctx)
+    target_dir = Path(install_dir) if install_dir else DEFAULT_INSTALL_DIR
+
+    skills_to_show = []
+
+    if not installed:
+        # Show bundled skills
+        bundled_skills = get_bundled_skills()
+        skills_to_show.extend(bundled_skills)
+
+    if not bundled:
+        # Show installed skills
+        installed_skills = get_installed_skills(target_dir)
+        # Avoid duplicates if both bundled and installed
+        existing_names = {s["name"] for s in skills_to_show}
+        for skill in installed_skills:
+            if skill["name"] not in existing_names:
+                skills_to_show.append(skill)
+
+    if not skills_to_show:
+        fmt.print_info("No skills found.")
+        return
+
+    headers = ["Name", "Version", "Description", "Source"]
+    rows = [
+        [
+            s.get("name", ""),
+            s.get("version", "-"),
+            s.get("description", "")[:50] + ("..." if len(s.get("description", "")) > 50 else ""),
+            s.get("source", ""),
+        ]
+        for s in skills_to_show
+    ]
+    fmt.print_table(headers, rows, title="Jcli Skills")
+
+
+@skills_group.command("install")
+@click.argument("name", required=False)
+@click.option("--all", "-a", "install_all", is_flag=True, help="Install all bundled skills.")
+@click.option("--force", "-f", is_flag=True, help="Force install (overwrite existing).")
+@click.option("--dir", "install_dir", type=click.Path(exists=False), help="Custom install directory.")
+@click.pass_context
+def skills_install_cmd(ctx: click.Context, name: str | None, install_all: bool, force: bool, install_dir: str | None) -> None:
+    """Install a skill.
+
+    NAME is the skill name to install (from bundled skills).
+    Use -a/--all to install all bundled skills.
+    """
+    fmt = get_formatter(ctx)
+    target_dir = Path(install_dir) if install_dir else DEFAULT_INSTALL_DIR
+
+    if not name and not install_all:
+        raise click.UsageError("Must specify either NAME or -a/--all")
+
+    if install_all:
+        bundled = get_bundled_skills()
+        success_count = 0
+        skip_count = 0
+        fail_count = 0
+
+        for skill in bundled:
+            skill_name = skill["name"]
+            try:
+                install_skill(skill_name, target_dir, force)
+                fmt.print_success(f"Skill '{skill_name}' installed")
+                success_count += 1
+            except click.ClickException as exc:
+                if "already installed" in str(exc):
+                    fmt.print_info(f"Skill '{skill_name}' already installed, skipping")
+                    skip_count += 1
+                else:
+                    fmt.print_error(f"Skill '{skill_name}': {exc}")
+                    fail_count += 1
+
+        fmt.console.print(f"\n[bold]Summary:[/bold] {success_count} installed, {skip_count} skipped, {fail_count} failed")
+        return
+
+    try:
+        install_skill(name, target_dir, force)
+    except click.ClickException:
+        raise
+    except Exception as exc:
+        fmt.print_error(f"Failed to install skill '{name}': {exc}")
+        raise SystemExit(1) from exc
+
+    fmt.print_success(f"Skill '{name}' installed to {target_dir / name}")
+
+
+@skills_group.command("uninstall")
+@click.argument("name")
+@click.option("--dir", "install_dir", type=click.Path(exists=False), help="Custom install directory.")
+@click.pass_context
+def skills_uninstall_cmd(ctx: click.Context, name: str, install_dir: str | None) -> None:
+    """Uninstall a skill.
+
+    NAME is the skill name to uninstall.
+    """
+    fmt = get_formatter(ctx)
+    target_dir = Path(install_dir) if install_dir else DEFAULT_INSTALL_DIR
+
+    try:
+        uninstall_skill(name, target_dir)
+    except click.ClickException:
+        raise
+    except Exception as exc:
+        fmt.print_error(f"Failed to uninstall skill '{name}': {exc}")
+        raise SystemExit(1) from exc
+
+    fmt.print_success(f"Skill '{name}' uninstalled from {target_dir}")
+
+
+@skills_group.command("get")
+@click.argument("name")
+@click.option("--installed", "-i", is_flag=True, help="Get from installed skills.")
+@click.option("--dir", "install_dir", type=click.Path(exists=False), help="Custom install directory.")
+@click.pass_context
+def skills_get_cmd(ctx: click.Context, name: str, installed: bool, install_dir: str | None) -> None:
+    """Show skill details and SKILL.md content."""
+    fmt = get_formatter(ctx)
+    target_dir = Path(install_dir) if install_dir else DEFAULT_INSTALL_DIR
+
+    if installed:
+        skill_dir = target_dir / name
+    else:
+        skill_dir = find_skill_dir(name)
+
+    if not skill_dir or not skill_dir.exists():
+        fmt.print_error(f"Skill '{name}' not found.")
+        raise SystemExit(1)
+
+    # Read and display SKILL.md
+    skill_md = skill_dir / "SKILL.md"
+    if not skill_md.exists():
+        fmt.print_error(f"Skill '{name}' does not have a SKILL.md file.")
+        raise SystemExit(1)
+
+    try:
+        content = skill_md.read_text(encoding="utf-8")
+    except OSError as exc:
+        fmt.print_error(f"Failed to read SKILL.md: {exc}")
+        raise SystemExit(1) from exc
+
+    # Print metadata
+    metadata = parse_skill_metadata(skill_dir)
+    fmt.console.print(f"\n[bold]Skill:[/bold] {metadata['name']}")
+    if metadata["version"]:
+        fmt.console.print(f"[bold]Version:[/bold] {metadata['version']}")
+    if metadata["description"]:
+        fmt.console.print(f"[bold]Description:[/bold] {metadata['description']}")
+    fmt.console.print(f"[bold]Path:[/bold] {metadata['path']}")
+    fmt.console.print("\n" + "=" * 60 + "\n")
+
+    # Print content
+    fmt.console.print(content)
+
+
+# =====================================================================
+# Completion command (verbatim from jcli/cli.py add_completion_command)
+# =====================================================================
+
+
+def build_completion_group(cli: click.Group) -> click.Group:
+    """Build the ``completion show`` group attached to *cli*."""
+    from click.shell_completion import BashComplete, FishComplete, ZshComplete
+
+    @click.group()
+    def completion() -> None:
+        """Shell completion support for jcli."""
+
+    @completion.command()
+    @click.argument("shell", type=click.Choice(["bash", "zsh", "fish"]))
+    def show(shell: str) -> None:
+        """Output shell completion script for the specified shell."""
+        shell_cls = {"bash": BashComplete, "zsh": ZshComplete, "fish": FishComplete}
+        complete = shell_cls[shell](cli, {}, "jcli", "_JCLI_COMPLETE")
+        click.echo(complete.source(), nl=False)
+
+    cli.add_command(completion)
+    return completion
+
+
+# =====================================================================
+# cliyard command plugin registration
+# =====================================================================
+
+
+@register_command("config")
+def _register_config(cli: click.Group, ctx: Any) -> None:
+    """Attach the config command group to the top-level CLI."""
+    cli.add_command(config_group)
+
+
+@register_command("skills")
+def _register_skills(cli: click.Group, ctx: Any) -> None:
+    """Attach the skills command group to the top-level CLI."""
+    cli.add_command(skills_group)
+
+
+@register_command("completion")
+def _register_completion(cli: click.Group, ctx: Any) -> None:
+    """Attach the completion command group to the top-level CLI."""
+    build_completion_group(cli)

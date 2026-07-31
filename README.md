@@ -7,10 +7,37 @@ A command-line tool for managing Jenkins servers. jcli wraps the Jenkins REST AP
 ## Features
 
 - **8 command modules** covering jobs, builds, nodes, plugins, credentials, pipelines, views, and system management
+- **Spec-driven CLI**: commands are declared as cliyard YAML specs in `specs/` and generated at runtime, no hand-written Click groups
 - **Multiple output formats**: human-readable tables (default, via Rich), JSON, and YAML
 - **Multi-profile support** via `~/.jcli/config.yaml` with environment variable overrides
 - **Automatic CSRF (Crumb) handling** for Jenkins servers with CSRF protection enabled
-- **Built with Click and Rich** for a polished terminal experience
+- **Built on cliyard and Rich** for a polished, maintainable terminal experience
+
+## Architecture
+
+jcli 2.0 is driven by [cliyard](https://pypi.org/project/cliyard/) YAML specs instead of hand-written Click command groups. At startup, `jcli/cli.py` locates the spec directory (`JCLI_SPEC_DIR` env var > package-local `specs/` > repo-root `specs/`) and calls `cliyard.runtime.create_cli()` to build the whole command tree. Commands stay declarative: adding or changing a command is an edit to a YAML file, not Python plumbing.
+
+```
+specs/
+  _auth.yaml          Server auth chain (basic auth + crumb, as cliyard plugins)
+  resources/          One YAML spec per Jenkins domain
+    job.yaml          job list/get/create/config/copy/enable/disable/delete
+    build.yaml        build list/get/trigger/replay/log/stop/queue
+    node.yaml         node list/get/delete/toggle
+    plugin.yaml       plugin list/get/install/uninstall
+    credential.yaml   credential list/get/create/delete
+    pipeline.yaml     pipeline stages/log/pending/validate
+    view.yaml         view list/get/create/delete
+    system.yaml       system info/load/quiet-down/restart/script
+  plugins/            Python method plugins for non-trivial logic
+    jenkins_auth.py         Basic + crumb authentication
+    jenkins_methods.py      Build trigger/replay, node create
+    jenkins_pipeline_validate.py  Jenkinsfile validation
+    jenkins_plugin.py       Plugin install/uninstall/update-center
+    jenkins_system.py       Groovy script, quiet-down, restart
+```
+
+A resource spec maps a command name to either a plain HTTP call (method, path, params, output mapping) or a `plugin:` reference. The auth chain in `_auth.yaml` injects `Authorization` and crumb headers into every request.
 
 ## Requirements
 
@@ -150,6 +177,8 @@ jcli job delete JOB_NAME                    Delete a job
 jcli build list JOB_NAME                    List recent builds for a job
 jcli build get JOB_NAME BUILD_NUMBER        Show details for a specific build
 jcli build trigger JOB_NAME                 Trigger a new build
+jcli build replay JOB_NAME BUILD_NUMBER     Replay a build reusing its parameters
+jcli build replay JOB_NAME BUILD_NUMBER --set KEY=VAL   ... and override values (repeatable)
 jcli build log JOB_NAME BUILD_NUMBER        Show console log for a build
 jcli build stop JOB_NAME BUILD_NUMBER       Stop a running build
 jcli build queue                            Show the current build queue
@@ -252,23 +281,20 @@ pytest --cov=jcli --cov-report=term-missing
 
 ```
 jcli/
-  cli.py              Main CLI entry point (Click group)
+  cli.py              Entry point: builds the Click CLI from cliyard YAML specs
+  cli_helpers.py      Global option injection and profile/format plumbing
   __init__.py         Version
-  plugins/            Command modules (one per Jenkins domain)
-    job.py
-    build.py
-    node.py
-    plugin.py
-    credential.py
-    pipeline.py
-    view.py
-    system.py
+  plugins/            Legacy hand-written command modules (kept for SDK compatibility)
   sdk/                Shared libraries
     client.py         Jenkins REST API client (HTTP, auth, crumb)
     config.py         Configuration management (YAML, env vars)
     output/
       formatter.py    Table/JSON/YAML output formatting
     exceptions.py     Typed exceptions
+specs/                cliyard YAML specs (command definitions)
+  _auth.yaml          Auth chain: basic + crumb plugins
+  resources/          One YAML per Jenkins domain (job, build, node, ...)
+  plugins/            Python method plugins for non-trivial logic
 tests/                pytest test suite
 ```
 
@@ -277,6 +303,7 @@ tests/                pytest test suite
 | Package          | Purpose                     |
 |-----------------|-----------------------------|
 | click >= 8.1.0   | CLI framework               |
+| cliyard >= 0.6.0 | Spec-driven CLI engine (YAML command generation) |
 | requests ~= 2.31 | HTTP client                 |
 | pyyaml ~= 6.0.1  | YAML config parsing         |
 | rich >= 13.7.1   | Terminal formatting (tables) |

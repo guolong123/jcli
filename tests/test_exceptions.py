@@ -1,4 +1,10 @@
-"""Tests for jcli.sdk.exceptions hierarchy."""
+"""Tests for jcli.sdk.exceptions hierarchy.
+
+jcli 2.0 mapping (v1 → v2): ``jcli.sdk.exceptions`` is unchanged and shared
+by v1/v2; the JenkinsError hierarchy (JenkinsAuthError, JenkinsNotFoundError,
+JenkinsConnectionError, JenkinsAPIError, JenkinsConfigError, JenkinsCrumbError)
+is still raised by the retained SDK client layer.
+"""
 
 import pytest
 

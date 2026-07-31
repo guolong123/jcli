@@ -409,7 +409,9 @@ class TestPluginCLI:
     def test_install_command_help(self, runner, cli):
         result = runner.invoke(cli, ["plugin", "install", "--help"])
         assert result.exit_code == 0
-        assert "PLUGIN_SPEC" in result.output
+        # cliyard 以参数名生成 metavar（PLUGINS），语义同 v1 的 PLUGIN_SPEC：
+        # install 接受一个或多个插件名参数
+        assert "PLUGINS" in result.output
 
     # ----- uninstall -----
 

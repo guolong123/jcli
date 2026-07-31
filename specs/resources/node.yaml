@@ -1,0 +1,64 @@
+name: node
+description: Manage Jenkins nodes (agents)
+methods:
+  list:
+    http:
+      method: GET
+      path: computer/api/json
+    output:
+      items_path: $.computer
+      fields:
+        - name: displayName
+          alias: Name
+        - name: offline
+          alias: Offline
+        - name: temporarilyOffline
+          alias: Temp Offline
+  get:
+    http:
+      method: GET
+      path: "computer/{{ name }}/api/json"
+    params:
+      path:
+        - name: name
+          type: string
+          argument: true
+  delete:
+    http:
+      method: POST
+      path: "computer/{{ name }}/doDelete"
+    params:
+      path:
+        - name: name
+          type: string
+          argument: true
+  toggle:
+    http:
+      method: POST
+      path: "computer/{{ name }}/toggleOffline"
+    params:
+      path:
+        - name: name
+          type: string
+          argument: true
+      body:
+        - name: offlineMessage
+          type: string
+  create:
+    type: plugin:jenkins_node_create
+    params:
+      body:
+        - name: name
+          type: string
+          argument: true
+        - name: num_executors
+          type: int
+          default: 1
+        - name: remote_fs
+          type: string
+          default: /tmp
+        - name: labels
+          type: string
+        - name: launch_method
+          type: string
+          default: hudson.slaves.JNLPLauncher
