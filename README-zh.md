@@ -56,7 +56,7 @@ pip install -e .
 ### 1. 配置 Jenkins 连接
 
 ```bash
-jcli config add prod --url https://jenkins.example.com --username admin
+jcli auth add -n prod -u admin -p your-api-token -e https://jenkins.example.com --default
 ```
 
 或手动创建配置文件 `~/.jcli/config.yaml`：
@@ -79,6 +79,21 @@ jcli build trigger my-job        # 触发构建
 ```
 
 ## 命令参考
+
+### 认证管理
+
+Profile 存储在 `~/.jcli/config.yaml`（Token 显示时掩码）。
+
+```bash
+jcli auth add -n NAME -u USER -p TOKEN -e URL     # 添加（或更新）Profile
+jcli auth add -n NAME ... --default               # 添加并设为 active
+jcli auth status                                  # 列出所有 Profile（Token 掩码）
+jcli auth use NAME                                # 切换 active Profile
+jcli auth rm NAME                                 # 删除 Profile
+jcli auth rm --all                                # 删除所有 Profile（重置模板）
+jcli auth set NAME FIELD VALUE                    # 修改 url/username/api_token/description
+jcli auth show [NAME]                             # 查看 Profile 详情（默认 active）
+```
 
 ### Job 管理
 

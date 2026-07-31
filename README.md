@@ -158,6 +158,21 @@ Every command accepts these global flags before the subcommand:
 -s, --server TEXT               Jenkins server URL
 ```
 
+### auth — Manage authentication profiles
+
+Profiles are stored in `~/.jcli/config.yaml` (token shown masked).
+
+```
+jcli auth add -n NAME -u USER -p TOKEN -e URL     Add (or update) a profile
+jcli auth add -n NAME ... --default               ... and make it active
+jcli auth status                                  List profiles (tokens masked)
+jcli auth use NAME                                Switch the active profile
+jcli auth rm NAME                                 Remove a profile
+jcli auth rm --all                                Remove all profiles (reset template)
+jcli auth set NAME FIELD VALUE                    Set url/username/api_token/description
+jcli auth show [NAME]                             Show a profile's details (default: active)
+```
+
 ### job — Manage Jenkins jobs
 
 ```

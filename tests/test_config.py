@@ -2,9 +2,10 @@
 
 jcli 2.0 mapping (v1 → v2):
 - ``jcli.sdk.config.Config`` is unchanged and shared by v1/v2.
-- The ``config`` CLI command group migrated from ``jcli/plugins/config.py``
-  to ``specs/plugins/jcli_commands.py`` (init/show/list/set/add/delete/use),
-  which calls the same ``Config`` class — no test changes required.
+- The ``config`` CLI command group has been removed; the jcli-native
+  ``auth`` group (add/status/use/rm/set/show) in ``jcli/cli.py`` covers
+  profile management through the same ``Config`` class — no test changes
+  required.
 """
 
 import os

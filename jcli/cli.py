@@ -309,7 +309,7 @@ def set_group_help(cli: click.Group) -> None:
 # only whitelisted top-level commands are kept on the jcli command surface.
 _ALLOWED_TOP_LEVEL_COMMANDS = {
     "job", "build", "node", "plugin", "credential", "pipeline", "view",
-    "system", "config", "skills", "completion", "auth",
+    "system", "skills", "completion", "auth",
 }
 
 
@@ -446,6 +446,54 @@ def _add_jcli_auth_commands(cli: click.Group) -> None:
         else:
             active = cfg.get_active_profile_name()
             click.echo(f"Active profile: {active} (use 'jcli auth rm NAME' or 'jcli auth rm --all')")
+
+    @auth.command("set")
+    @click.argument("name")
+    @click.argument("field", type=click.Choice(["url", "username", "api_token", "description"]))
+    @click.argument("value")
+    def auth_set(name: str, field: str, value: str) -> None:
+        """Set a configuration field (url/username/api_token/description) for a profile."""
+        cfg = _get_config()
+        try:
+            data = cfg.get_profile(name)
+        except ProfileNotFoundError:
+            click.echo(f"Error: Profile '{name}' not found", err=True)
+            raise click.exceptions.Exit(1)
+        data[field] = value
+        cfg.add_profile(
+            name=name,
+            url=data.get("url", ""),
+            username=data.get("username", ""),
+            api_token=data.get("api_token", ""),
+            description=data.get("description", ""),
+        )
+        click.echo(f"Updated profile '{name}': {field} = {value}")
+
+    @auth.command("show")
+    @click.argument("name", required=False)
+    def auth_show(name: str | None) -> None:
+        """Show profile details (default: active profile, token masked)."""
+        cfg = _get_config()
+        if name is None:
+            name = cfg.get_active_profile_name()
+        try:
+            data = cfg.get_profile(name)
+        except ProfileNotFoundError:
+            click.echo(f"Error: Profile '{name}' not found", err=True)
+            raise click.exceptions.Exit(1)
+        active_name = cfg.get_active_profile_name()
+        is_active = " (active)" if name == active_name else ""
+        click.echo(f"Profile: {name}{is_active}")
+        fields = [
+            ("url", "URL"),
+            ("username", "Username"),
+            ("api_token", "API Token"),
+            ("description", "Description"),
+        ]
+        for key, label in fields:
+            value = data.get(key, "")
+            display = _mask_token(value) if key == "api_token" else value
+            click.echo(f"  {label}: {display}")
 
     cli.add_command(auth)
 
