@@ -512,17 +512,6 @@ def _build_cli(spec_dir: Path, server: str | None, profile: str | None) -> click
     return cli
 
 
-def _ensure_machine_consumable_output() -> None:
-    """Default terminal width to 500 columns when not in a real TTY.
-
-    cliyard's rich ``Console()`` hard-wraps long lines at the terminal width,
-    which corrupts ``--format json/yaml/csv`` output (newlines injected inside
-    the data).  A generous default COLUMNS keeps machine-consumable output
-    intact unless the user explicitly overrides it.
-    """
-    os.environ.setdefault("COLUMNS", "500")
-
-
 def create_jcli_cli(argv: list[str] | None = None) -> click.Group:
     """Build the jcli Click CLI from the YAML specs (wrapper included).
 
@@ -530,7 +519,6 @@ def create_jcli_cli(argv: list[str] | None = None) -> click.Group:
     ``-s/--server`` is stripped from it (cliyard's runner pre-extraction).
     Tests pass an explicit argv to avoid touching ``sys.argv``.
     """
-    _ensure_machine_consumable_output()
     if argv is None:
         argv = sys.argv[1:]
         cleaned, server = extract_server_override(argv)
