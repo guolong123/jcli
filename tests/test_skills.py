@@ -168,16 +168,24 @@ class TestSkillsListCommand:
         assert "Jcli Skills" in result.output
         assert "jcli-config" in result.output
 
+    def test_default_list_shows_only_jcli_skills(self, runner: CliRunner) -> None:
+        result = runner.invoke(skills_group, ["list"])
+        assert result.exit_code == 0
+        assert "jcli-config" in result.output
+        assert "audit-log-analysis" not in result.output
+        assert "ketacli-" not in result.output
+        assert "lark-" not in result.output
+
     def test_lists_installed_skills(self, runner: CliRunner, temp_install_dir: Path) -> None:
         temp_install_dir.mkdir(parents=True)
-        skill_dir = temp_install_dir / "test-skill"
+        skill_dir = temp_install_dir / "jcli-test-skill"
         skill_dir.mkdir()
         skill_md = skill_dir / "SKILL.md"
-        skill_md.write_text("---\nname: test-skill\nversion: 1.0.0\n---\n# Test")
+        skill_md.write_text("---\nname: jcli-test-skill\nversion: 1.0.0\n---\n# Test")
 
         result = runner.invoke(skills_group, ["list", "--installed", "--dir", str(temp_install_dir)])
         assert result.exit_code == 0
-        assert "test-skill" in result.output
+        assert "jcli-test-skill" in result.output
 
 
 # ==================================================================
@@ -235,6 +243,26 @@ class TestSkillsInstallCommand:
         )
         assert result.exit_code == 0
 
+    def test_force_overwrites_broken_symlink(self, runner: CliRunner, temp_install_dir: Path) -> None:
+        # Create a broken symlink (target does not exist)
+        temp_install_dir.mkdir(parents=True)
+        skill_link = temp_install_dir / "jcli-config"
+        skill_link.symlink_to(temp_install_dir / "nonexistent-target")
+        assert skill_link.is_symlink()
+        assert not skill_link.exists()
+
+        # Force install over the broken symlink
+        result = runner.invoke(
+            skills_group,
+            ["install", "jcli-config", "--force", "--dir", str(temp_install_dir)]
+        )
+        assert result.exit_code == 0
+
+        # Broken symlink replaced with a working symlink to the bundled skill
+        assert skill_link.is_symlink()
+        assert skill_link.exists()
+        assert (skill_link / "SKILL.md").exists()
+
 
 # ==================================================================
 # CLI: skills uninstall
@@ -267,6 +295,21 @@ class TestSkillsUninstallCommand:
             ["uninstall", "nonexistent-skill", "--dir", str(temp_install_dir)]
         )
         assert result.exit_code != 0
+
+    def test_uninstalls_broken_symlink(self, runner: CliRunner, temp_install_dir: Path) -> None:
+        # Create a broken symlink (target does not exist)
+        temp_install_dir.mkdir(parents=True)
+        skill_link = temp_install_dir / "jcli-config"
+        skill_link.symlink_to(temp_install_dir / "nonexistent-target")
+        assert skill_link.is_symlink()
+        assert not skill_link.exists()
+
+        result = runner.invoke(
+            skills_group,
+            ["uninstall", "jcli-config", "--dir", str(temp_install_dir)]
+        )
+        assert result.exit_code == 0
+        assert not skill_link.is_symlink()
 
 
 # ==================================================================

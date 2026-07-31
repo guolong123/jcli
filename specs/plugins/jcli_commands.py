@@ -68,9 +68,12 @@ def parse_skill_metadata(skill_dir: Path) -> dict[str, Any]:
     frontmatter = match.group(1)
 
     # Simple YAML parsing without pyyaml dependency
-    for line in frontmatter.split("\n"):
-        line = line.strip()
+    lines = frontmatter.split("\n")
+    i = 0
+    while i < len(lines):
+        line = lines[i].strip()
         if not line or line.startswith("#"):
+            i += 1
             continue
 
         if line.startswith("name:"):
@@ -79,12 +82,43 @@ def parse_skill_metadata(skill_dir: Path) -> dict[str, Any]:
             metadata["version"] = line.split(":", 1)[1].strip().strip("'\"")
         elif line.startswith("description:"):
             desc = line.split(":", 1)[1].strip().strip("'\"")
+            if desc in ("|", ">", ""):
+                # YAML block scalar: collect following indented lines
+                parts = []
+                j = i + 1
+                while j < len(lines) and (
+                    lines[j].startswith(" ") or lines[j].startswith("\t")
+                ):
+                    parts.append(lines[j].strip())
+                    j += 1
+                if parts:
+                    desc = " ".join(parts)
+                    i = j - 1  # continue after the block scalar
             metadata["description"] = desc
         elif line.startswith("- ") and "allowed-tools" in frontmatter:
             tool = line[2:].strip().strip("'\"")
             metadata["allowed_tools"].append(tool)
+        i += 1
 
     return metadata
+
+
+def _is_jcli_skill(metadata: dict[str, Any]) -> bool:
+    """Return True if the skill belongs to jcli.
+
+    A skill is considered jcli's own when:
+    - it is a symlink into the bundled skills directory
+      (``source == "bundled (symlink)"``), or
+    - its name starts with the ``jcli-`` prefix, or
+    - its path contains a ``jcli`` path segment (e.g. inside BUNDLED_SKILLS_DIR).
+    """
+    if metadata.get("source") == "bundled (symlink)":
+        return True
+    if str(metadata.get("name", "")).startswith("jcli-"):
+        return True
+    if "jcli" in Path(str(metadata.get("path", ""))).parts:
+        return True
+    return False
 
 
 def get_bundled_skills() -> list[dict[str, Any]]:
@@ -158,8 +192,8 @@ def install_skill(
 
     skill_dest = target_dir / name
 
-    # Check if already installed
-    if skill_dest.exists():
+    # Path.exists() is False for a broken symlink; is_symlink() catches it
+    if skill_dest.exists() or skill_dest.is_symlink():
         if force:
             # Remove existing
             if skill_dest.is_symlink():
@@ -191,7 +225,8 @@ def uninstall_skill(name: str, install_dir: Path | None = None) -> bool:
     target_dir = install_dir or DEFAULT_INSTALL_DIR
     skill_path = target_dir / name
 
-    if not skill_path.exists():
+    # Path.exists() is False for a broken symlink; is_symlink() catches it
+    if not skill_path.exists() and not skill_path.is_symlink():
         raise click.ClickException(f"Skill '{name}' not found in {target_dir}.")
 
     if skill_path.is_symlink():
@@ -222,19 +257,27 @@ def skills_list_cmd(ctx: click.Context, installed: bool, bundled: bool, install_
 
     skills_to_show = []
 
-    if not installed:
-        # Show bundled skills
-        bundled_skills = get_bundled_skills()
-        skills_to_show.extend(bundled_skills)
-
-    if not bundled:
-        # Show installed skills
-        installed_skills = get_installed_skills(target_dir)
-        # Avoid duplicates if both bundled and installed
-        existing_names = {s["name"] for s in skills_to_show}
-        for skill in installed_skills:
-            if skill["name"] not in existing_names:
+    if installed and bundled:
+        # Both flags explicitly given: bundled + jcli installed (dedup by name)
+        seen: set[str] = set()
+        for skill in get_bundled_skills():
+            skills_to_show.append(skill)
+            seen.add(skill["name"])
+        for skill in get_installed_skills(target_dir):
+            if _is_jcli_skill(skill) and skill["name"] not in seen:
                 skills_to_show.append(skill)
+                seen.add(skill["name"])
+    elif installed:
+        # Only jcli installed skills
+        skills_to_show.extend(
+            s for s in get_installed_skills(target_dir) if _is_jcli_skill(s)
+        )
+    elif bundled:
+        # Only bundled skills
+        skills_to_show.extend(get_bundled_skills())
+    else:
+        # Default: only bundled (jcli's own skills)
+        skills_to_show.extend(get_bundled_skills())
 
     if not skills_to_show:
         fmt.print_info("No skills found.")
