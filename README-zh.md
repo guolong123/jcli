@@ -260,16 +260,16 @@ jcli/
   cli.py              CLI 入口：从 cliyard YAML specs 构建 Click 命令树
   cli_helpers.py      输出格式化辅助（供 cliyard 命令插件使用）
   __init__.py         版本
+  specs/              cliyard YAML specs（命令定义）
+    _auth.yaml        认证链：basic + crumb 插件
+    resources/        每个 Jenkins 领域一个 YAML（job、build、node...）
+    plugins/          复杂逻辑的 Python 方法插件
   sdk/                SDK 库
     client.py         Jenkins REST API 客户端
     config.py         配置管理
     output/           输出格式化
     exceptions.py     类型化异常
   skills/             内置技能文档
-specs/                cliyard YAML specs（命令定义）
-  _auth.yaml          认证链：basic + crumb 插件
-  resources/          每个 Jenkins 领域一个 YAML（job、build、node...）
-  plugins/            复杂逻辑的 Python 方法插件
 tests/                测试
 ```
 

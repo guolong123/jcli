@@ -48,21 +48,14 @@ SPEC_DIR_ENV = "JCLI_SPEC_DIR"
 
 
 def _default_spec_dir() -> Path:
-    """Locate the cliyard YAML spec directory.
+    """Locate the cliyard YAML spec directory (ships inside the package).
 
-    Priority: ``$JCLI_SPEC_DIR`` > package-local ``specs/`` > repo-root
-    ``specs/`` (editable/dev layout).
+    Priority: ``$JCLI_SPEC_DIR`` env var > package-local ``jcli/specs/``.
     """
     env = os.environ.get(SPEC_DIR_ENV)
     if env:
         return Path(env)
-    pkg_specs = Path(__file__).resolve().parent / "specs"
-    if pkg_specs.is_dir():
-        return pkg_specs
-    repo_specs = Path(__file__).resolve().parent.parent / "specs"
-    if repo_specs.is_dir():
-        return repo_specs
-    return pkg_specs
+    return Path(__file__).resolve().parent / "specs"
 
 
 def extract_profile_override(argv: list[str]) -> str | None:

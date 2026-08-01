@@ -15,10 +15,10 @@ A command-line tool for managing Jenkins servers. jcli wraps the Jenkins REST AP
 
 ## Architecture
 
-jcli 2.0 is driven by [cliyard](https://pypi.org/project/cliyard/) YAML specs instead of hand-written Click command groups. At startup, `jcli/cli.py` locates the spec directory (`JCLI_SPEC_DIR` env var > package-local `specs/` > repo-root `specs/`) and calls `cliyard.runtime.create_cli()` to build the whole command tree. Commands stay declarative: adding or changing a command is an edit to a YAML file, not Python plumbing.
+jcli 2.0 is driven by [cliyard](https://pypi.org/project/cliyard/) YAML specs instead of hand-written Click command groups. At startup, `jcli/cli.py` locates the spec directory (`JCLI_SPEC_DIR` env var > package-local `jcli/specs/`) and calls `cliyard.runtime.create_cli()` to build the whole command tree. Commands stay declarative: adding or changing a command is an edit to a YAML file, not Python plumbing.
 
 ```
-specs/
+jcli/specs/
   _auth.yaml          Server auth chain (basic auth + crumb, as cliyard plugins)
   resources/          One YAML spec per Jenkins domain
     job.yaml          job list/get/create/config/copy/enable/disable/delete
@@ -30,11 +30,12 @@ specs/
     view.yaml         view list/get/create/delete
     system.yaml       system info/load/quiet-down/restart/script
   plugins/            Python method plugins for non-trivial logic
-    jenkins_auth.py         Basic + crumb authentication
-    jenkins_methods.py      Build trigger/replay, node create
+    jcli_commands.py         Skills + completion commands
+    jenkins_auth.py          Basic + crumb authentication
+    jenkins_methods.py       Build trigger/replay, node create
     jenkins_pipeline_validate.py  Jenkinsfile validation
-    jenkins_plugin.py       Plugin install/uninstall/update-center
-    jenkins_system.py       Groovy script, quiet-down, restart
+    jenkins_plugin.py        Plugin install/uninstall/update-center
+    jenkins_system.py        Groovy script, quiet-down, restart
 ```
 
 A resource spec maps a command name to either a plain HTTP call (method, path, params, output mapping) or a `plugin:` reference. The auth chain in `_auth.yaml` injects `Authorization` and crumb headers into every request.

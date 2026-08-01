@@ -3,8 +3,8 @@
 jcli 2.0 mapping (v1 → v2):
 - v1 ``jcli/plugins/skills.py`` was removed during the v1 legacy cleanup.
 - The ``skills`` CLI command group and its helpers now live in
-  ``specs/plugins/jcli_commands.py`` (cliyard command plugin).  Since
-  ``specs/`` is not a Python package, the module is loaded via importlib so
+  ``jcli/specs/plugins/jcli_commands.py`` (cliyard command plugin).  Since
+  ``jcli/specs/`` is not a Python package, the module is loaded via importlib so
   this file still tests the real v2 implementation.
 """
 
@@ -16,9 +16,9 @@ from pathlib import Path
 import pytest
 from click.testing import CliRunner
 
-# Load the v2 skills implementation from specs/plugins/jcli_commands.py.
+# Load the v2 skills implementation from jcli/specs/plugins/jcli_commands.py.
 _JCLI_COMMANDS_PATH = (
-    Path(__file__).resolve().parent.parent / "specs" / "plugins" / "jcli_commands.py"
+    Path(__file__).resolve().parent.parent / "jcli" / "specs" / "plugins" / "jcli_commands.py"
 )
 _spec = importlib.util.spec_from_file_location("jcli_commands", _JCLI_COMMANDS_PATH)
 assert _spec is not None and _spec.loader is not None

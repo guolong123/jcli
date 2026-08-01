@@ -4,8 +4,8 @@ jcli 2.0 mapping (v1 → v2):
 - v1 ``jcli.sdk.client.JenkinsClient`` is retained as the SDK compatibility
   layer (HTTP + auth + crumb + retry) and is still exercised here.
 - The v2 CLI does NOT use it: requests go through cliyard's ``HttpClient``
-  with the auth chain defined in ``specs/_auth.yaml`` and implemented by
-  ``specs/plugins/jenkins_auth.py`` (basic auth + crumb).  This file keeps
+with the auth chain defined in ``jcli/specs/_auth.yaml`` and implemented by
+``jcli/specs/plugins/jenkins_auth.py`` (basic auth + crumb).  This file keeps
   covering the SDK-level behaviors (crumb lazily fetched/cached, error
   mapping, retry on 503/504) that the v2 auth plugin relies on.
 """

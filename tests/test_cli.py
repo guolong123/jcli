@@ -2,7 +2,7 @@
 
 jcli 2.0 mapping (v1 → v2):
 - v1 ``jcli/cli.py`` hand-written Click groups → v2 cliyard YAML specs
-  (``specs/resources/*.yaml`` + ``specs/_auth.yaml``); ``jcli/cli.py`` is
+  (``jcli/specs/resources/*.yaml`` + ``jcli/specs/_auth.yaml``); ``jcli/cli.py`` is
   now a thin wrapper that layers global options over ``cliyard.runtime.create_cli``
   and keeps ``from jcli.cli import cli`` (``_LazyCLI``) working.
 - v1 group descriptions (e.g. "Manage Jenkins jobs") → v2 YAML ``description``

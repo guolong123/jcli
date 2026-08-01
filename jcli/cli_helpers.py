@@ -1,7 +1,7 @@
 """Centralized CLI helpers.
 
 v2 only needs the output-formatter helper (used by the cliyard command
-plugins, e.g. ``specs/plugins/jcli_commands.py``).  The v1 ``get_client``
+plugins, e.g. ``jcli/specs/plugins/jcli_commands.py``).  The v1 ``get_client``
 helper was removed together with the legacy hand-written command modules
 (``jcli/plugins/``).
 """

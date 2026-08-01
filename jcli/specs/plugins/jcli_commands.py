@@ -28,8 +28,10 @@ from jcli.cli_helpers import get_formatter
 # =====================================================================
 
 # Bundled skills directory (ships with jcli package):
-# <repo-root>/jcli/skills/jcli/*  — plugin lives in <repo-root>/specs/plugins/
-BUNDLED_SKILLS_DIR = Path(__file__).resolve().parent.parent.parent / "jcli" / "skills" / "jcli"
+# <repo-root>/jcli/skills/jcli/*  — this plugin lives in <repo-root>/jcli/specs/plugins/
+BUNDLED_SKILLS_DIR = (
+    Path(__file__).resolve().parent.parent.parent.parent / "jcli" / "skills" / "jcli"
+)
 
 # Default install directory for opencode
 DEFAULT_INSTALL_DIR = Path.home() / ".config" / "opencode" / "skills"
