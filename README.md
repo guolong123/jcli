@@ -298,15 +298,15 @@ pytest --cov=jcli --cov-report=term-missing
 ```
 jcli/
   cli.py              Entry point: builds the Click CLI from cliyard YAML specs
-  cli_helpers.py      Global option injection and profile/format plumbing
+  cli_helpers.py      Output-formatter helper used by the cliyard command plugins
   __init__.py         Version
-  plugins/            Legacy hand-written command modules (kept for SDK compatibility)
   sdk/                Shared libraries
     client.py         Jenkins REST API client (HTTP, auth, crumb)
     config.py         Configuration management (YAML, env vars)
     output/
       formatter.py    Table/JSON/YAML output formatting
     exceptions.py     Typed exceptions
+  skills/             Bundled skill documentation
 specs/                cliyard YAML specs (command definitions)
   _auth.yaml          Auth chain: basic + crumb plugins
   resources/          One YAML per Jenkins domain (job, build, node, ...)

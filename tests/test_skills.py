@@ -1,28 +1,37 @@
-"""Tests for jcli.plugins.skills — Skills management commands.
+"""Tests for jcli skills commands — skills management commands.
 
 jcli 2.0 mapping (v1 → v2):
-- v1 ``jcli/plugins/skills.py`` is kept as the SDK/testing target (helpers
-  ``parse_skill_metadata`` / ``get_bundled_skills`` / ``find_skill_dir`` …).
-- The ``skills`` CLI command group migrated verbatim to
-  ``specs/plugins/jcli_commands.py`` (backed by the same helpers), so this
-  file still tests the real implementation.
+- v1 ``jcli/plugins/skills.py`` was removed during the v1 legacy cleanup.
+- The ``skills`` CLI command group and its helpers now live in
+  ``specs/plugins/jcli_commands.py`` (cliyard command plugin).  Since
+  ``specs/`` is not a Python package, the module is loaded via importlib so
+  this file still tests the real v2 implementation.
 """
 
 from __future__ import annotations
 
-import pytest
-from click.testing import CliRunner
+import importlib.util
 from pathlib import Path
 
-from jcli.plugins.skills import (
-    skills_group,
-    get_bundled_skills,
-    get_installed_skills,
-    parse_skill_metadata,
-    find_skill_dir,
-    BUNDLED_SKILLS_DIR,
-    DEFAULT_INSTALL_DIR,
+import pytest
+from click.testing import CliRunner
+
+# Load the v2 skills implementation from specs/plugins/jcli_commands.py.
+_JCLI_COMMANDS_PATH = (
+    Path(__file__).resolve().parent.parent / "specs" / "plugins" / "jcli_commands.py"
 )
+_spec = importlib.util.spec_from_file_location("jcli_commands", _JCLI_COMMANDS_PATH)
+assert _spec is not None and _spec.loader is not None
+jcli_commands = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(jcli_commands)
+
+skills_group = jcli_commands.skills_group
+get_bundled_skills = jcli_commands.get_bundled_skills
+get_installed_skills = jcli_commands.get_installed_skills
+parse_skill_metadata = jcli_commands.parse_skill_metadata
+find_skill_dir = jcli_commands.find_skill_dir
+BUNDLED_SKILLS_DIR = jcli_commands.BUNDLED_SKILLS_DIR
+DEFAULT_INSTALL_DIR = jcli_commands.DEFAULT_INSTALL_DIR
 
 
 # ==================================================================
