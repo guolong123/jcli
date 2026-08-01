@@ -206,6 +206,9 @@ def _make_format_injector(callback: Callable[..., Any]) -> Callable[..., Any]:
     ``Error:``/``错误:`` markers and re-emits them on stderr with a non-zero
     exit code.
 
+    Commands carrying a ``--follow`` flag (live log tailing) bypass the
+    stdout capture so the plugin can stream output in real time.
+
     Note: ``ctx.exit(1)`` (not ``return 1``) is required — Click >= 8.4
     ignores a plain integer return value from the top-level callback and
     always exits with ``ctx.exit_code`` (default 0).
@@ -223,6 +226,9 @@ def _make_format_injector(callback: Callable[..., Any]) -> Callable[..., Any]:
                 source = ParameterSource.DEFAULT
             if source in (None, ParameterSource.DEFAULT, ParameterSource.DEFAULT_MAP):
                 kwargs["format"] = global_format
+
+        if kwargs.get("follow"):
+            return callback(**kwargs)
 
         buffer = io.StringIO()
         real_stdout = sys.stdout
@@ -491,6 +497,26 @@ def _add_jcli_auth_commands(cli: click.Group) -> None:
     cli.add_command(auth)
 
 
+def _add_tail_short_options(cli: click.Group) -> None:
+    """Give ``build log`` tail-style short flags (``-f``/``-n``).
+
+    cliyard generates long-only options (``--follow``/``--lines``); add the
+    conventional ``tail`` short aliases on the ``build log`` command.
+    """
+    build = cli.commands.get("build")
+    if not isinstance(build, click.Group):
+        return
+    log = build.commands.get("log")
+    if not log:
+        return
+    for p in log.params:
+        if isinstance(p, click.Option):
+            if p.name == "follow" and "-f" not in p.opts:
+                p.opts = ("-f", "--follow")
+            elif p.name == "lines" and "-n" not in p.opts:
+                p.opts = ("-n", "--lines")
+
+
 def _build_cli(spec_dir: Path, server: str | None, profile: str | None) -> click.Group:
     """Create the cliyard CLI and apply the jcli wrapper layer."""
     base_url = resolve_base_url(server, profile)
@@ -502,6 +528,7 @@ def _build_cli(spec_dir: Path, server: str | None, profile: str | None) -> click
     wrap_subcommand_callbacks(cli)
     set_group_help(cli)
     _prune_non_jcli_commands(cli)
+    _add_tail_short_options(cli)
     return cli
 
 

@@ -58,20 +58,22 @@ methods:
           multiple: true
 
   log:
-    description: Show console log for a build
-    http:
-      method: GET
-      path: "job/{{ job_name | replace('/', '/job/') }}/{{ number }}/consoleText"
+    description: Show console log for a build (-f to follow live, -n for trailing lines)
+    type: plugin:jenkins_build_log
     params:
-      path:
+      body:
         - name: job_name
           type: string
           argument: true
         - name: number
           type: int
           argument: true
-    output:
-      format: text
+        - name: follow
+          type: bool
+          description: Follow the log live (tail -f style)
+        - name: lines
+          type: int
+          description: "Number of trailing lines to show (default: all)"
 
   stop:
     description: Stop a running build

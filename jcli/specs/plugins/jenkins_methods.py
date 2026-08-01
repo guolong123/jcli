@@ -252,3 +252,81 @@ def jenkins_node_create(
         timeout=http_client.timeout,
     )
     return {"status": "created", "name": name}
+
+
+def _tail_lines(text: str, n: int) -> str:
+    """Return the last *n* lines of *text* (all of it when shorter)."""
+    if n <= 0:
+        return text
+    lines = text.splitlines()
+    if len(lines) <= n:
+        return text
+    return "\n".join(lines[-n:]) + "\n"
+
+
+@register_method("jenkins_build_log")
+def jenkins_build_log(
+    params: dict[str, Any], http_client: Any, config: dict[str, Any]
+) -> dict[str, Any]:
+    """Show a build's console log (``tail`` semantics).
+
+    * no flags — print the whole log once
+    * ``-n N`` — print only the last *N* lines
+    * ``-f`` — follow live; history (all, or the last ``-n N`` lines) is
+      printed first, then newly appended lines stream until the build ends
+
+    Follow polls the full console text and slices locally by byte offset,
+    so it does not rely on Jenkins' ``?start=`` support (some servers and
+    proxies ignore it) — each refresh prints only new lines, no reprints.
+    Output is written directly by this plugin (``_formatted``), so the
+    cliyard/jcli wrappers do not re-format.
+
+    Args:
+        params: Body params — ``job_name`` (str), ``number`` (int),
+            ``follow`` (bool), ``lines`` (int).
+        http_client: Configured HttpClient instance.
+        config: Plugin configuration (unused).
+
+    Returns:
+        ``{"_formatted": True}`` — output already printed.
+    """
+    import time as _time
+
+    job_name = params.get("job_name", "")
+    number = params.get("number", 0)
+    follow = params.get("follow", False)
+    lines = params.get("lines", 0) or 0
+
+    path = _job_path(job_name)
+    log_url = f"{path}/{number}/consoleText"
+
+    first_text = http_client.request("GET", log_url).text
+
+    if not follow:
+        print(_tail_lines(first_text, lines), end="")
+        return {"_formatted": True}
+
+    print(_tail_lines(first_text, lines), end="", flush=True)
+    offset = len(first_text)
+
+    try:
+        while True:
+            resp = http_client.request("GET", log_url)
+            text = resp.text
+            total = len(text)
+            if total > offset:
+                print(text[offset:], end="", flush=True)
+                offset = total
+
+            build = http_client.request(
+                "GET",
+                f"{path}/{number}/api/json",
+                query_params={"tree": "building"},
+            ).json()
+            if not build.get("building"):
+                break
+            _time.sleep(0.25)
+    except KeyboardInterrupt:
+        pass
+    print()
+    return {"_formatted": True}
