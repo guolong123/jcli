@@ -74,29 +74,14 @@ fi
 
 # 清理旧的构建文件
 echo "🧹 清理旧的构建文件..."
-rm -rf dist/ build/ *.egg-info/ jcli/specs/
+rm -rf dist/ build/ *.egg-info/
 echo "✅ 清理完成"
-echo ""
-
-# 将 cliyard YAML specs 复制进包内（jcli/specs/）。
-# cli.py 运行时从包内 specs/ 加载命令定义，pyproject.toml 的
-# package-data 会把它们打进 wheel/sdist。
-echo "📦 同步 cliyard specs 到包内..."
-cp -r specs jcli/specs
-# 仅排除 __pycache__，保留全部插件（含 jcli_commands.py 的 config/skills/completion 命令）
-find jcli/specs -type d -name '__pycache__' -prune -exec rm -rf {} +
-echo "✅ specs 已同步"
 echo ""
 
 # 构建
 echo "📦 构建源码包和 wheel..."
 python3 -m build
 echo "✅ 构建完成"
-echo ""
-
-# 清理构建期间复制的包内 specs，避免污染工作区
-rm -rf jcli/specs
-echo "✅ 已清理构建期 specs 副本"
 echo ""
 
 # 显示构建结果
